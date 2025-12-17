@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>LLM Folio</title>
+<style type="text/css">
+:root {
+  --bg-color: #111;
+  --fg-color-text: #ccc;
+  --fg-color-link: skyblue;
+
+  --fg-color-parameter-fulfilled: lime;
+  --fg-color-parameter-unfulfilled: yellow;
+
+  --border-color-prompt-complete: aqua;
+  --border-color-prompt-incomplete: var(--fg-color-text);
+
+  --font-family-text: sans-serif;
+
+  --sidebar-width: 20vw;
+  --initial-sidebar-width: 20vw;
+
+}
+html, body {
+  background-color: var(--bg-color);
+  color: var(--fg-color-text);
+  font-family: var(--font-family-text);
+  height: 100vh; width: 100vw;
+  margin: 0; padding: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+body a {
+  color: var(--fg-color-link);
+}
+
+
+.-defer {
+  display: none !important;
+}
+.-hidden {
+  display: none !important;
+  transition: display 0.4s;
+}
+.-collapsed {
+  margin-bottom: 9pt !important;
+  transition: margin-bottom: 0.8s;
+}
+
+main {
+  width: 100%; height: 100%;
+  margin: 0; padding: 0;
+  display: grid;
+  grid-gap: 0;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 3em;
+}
+
+/* Set inner-pane borders to separate the nav sidebar from the
+   main content pane, and the status bar from the main chrome. */
+main > #status  { border-top:   1px solid #333; }
+main > #sidebar { border-right: 1px solid #333; }
+
+/* Apply uniform padding to the status bar, sidebar, and
+   main content pane. */
+main > #status,
+main > #sidebar nav,
+main > #studio { box-sizing: border-box; padding: 1em; }
+
+main > #sidebar nav { width: var(--initial-sidebar-width); }
+
+main > #status,
+main > #sidebar {
+  position: fixed;
+  background-color: var(--bg-color);
+  overflow: hidden;
+}
+main > #status  {         right: 0; bottom: 0; left: 0; height: 3em;}
+main > #sidebar { top: 0;           bottom: 0; left: 0; width:  var(--sidebar-width);}
+main > #studio {
+  padding-bottom: 4em;
+  margin-left: calc(var(--sidebar-width) + 1em);
+}
+main > #sidebar {
+  transition: width 0.8s;
+}
+main > #studio {
+  transition: margin-left 0.8s;
+}
+
+
+.query-form,
+.data-preview {
+  margin: 0 0 4em 0;
+}
+.query-form label,
+.query-form textarea {
+  display: block;
+}
+.query-form textarea {
+  width: 70%;
+  min-width: 40em;
+  height: 15em;
+  margin: 0 0 4pt 0;
+}
+
+.prompt-form form {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-auto-rows: auto;
+  grid-gap: 1em;
+}
+button {
+  cursor: pointer;
+  padding: 8pt 12pt;
+  opacity: 0.4;
+  border-radius: 5pt;
+  border: none;
+  font-size: 12pt;
+  font-weight: bold;
+}
+button.-active {
+  opacity: 1;
+}
+.prompt-form form > div {
+  padding: 0.5em;
+}
+
+.prompt-form .prompt-component {
+  border-left: 4px solid var(--border-color-prompt-incomplete);
+}
+.prompt-form .prompt-component.-complete {
+  border-color: var(--border-color-prompt-complete);
+}
+.prompt-form .prompt-component span.parameter-reference {
+  display: inline-block;
+  padding: 4pt 6pt;
+  border: 1px solid var(--fg-color-text);
+  border-radius: 3pt;
+  font-family: monospace;
+  background-color: #222;
+  color: var(--fg-color-parameter-unfulfilled);
+}
+.prompt-form .prompt-component span.parameter-reference.-fulfilled {
+  color: var(--fg-color-parameter-fulfilled);
+}
+.prompt-form .prompt-component span.parameter-reference.-long {
+  display: block;
+  min-height: 5em;
+  max-width: 40em;
+}
+.prompt-form .prompt-component span.parameter-reference.-long::after {
+  content: '...';
+  color: var(--fg-color-text);
+}
+
+.prompt-form .parameter-definition {
+  display: flex;
+  flex-direction: column;
+}
+.prompt-form .parameter-definition > * {
+  padding: 4pt 0;
+}
+.prompt-form .parameter-definition label.parameter-name {
+  font-family: monospace;
+  color: var(--fg-color-parameter-unfulfilled);
+}
+.prompt-form .parameter-definition.-fulfilled label.parameter-name {
+  color: var(--fg-color-parameter-fulfilled);
+}
+
+
+.data-preview table tbody td {
+  border: 1px solid var(--fg-color-text);
+  min-width: 8em;
+}
+.data-preview table tbody td,
+.data-preview table tbody th {
+  padding: 6pt;
+}
+.data-preview table {
+  border-collapse: collapse;
+}
+.data-preview table th {
+  font-weight: bold;
+}
+.data-preview table td {
+  vertical-align: top;
+  overflow: hidden;
+}
+.data-preview table tbody tr td > div {
+  max-height: calc(4 * 1.15em) ;
+  overflow: hidden;
+}
+</style>
+</head>
+<body>
+
+<main>
+  <div id="sidebar">
+    <nav>
+      <ol>
+        <li><a href="#">First Folio</a></li>
+        <li><a href="#">Second Folio</a></li>
+        <li><a href="#">Another Folio</a></li>
+        <li><a href="#">Last Folio</a></li>
+      </ol>
+      <a class="action">New Folio</a>
+    </nav>
+  </div>
+
+  <div id="studio">
+    <div class="query-form">
+      <label>Database query</label>
+      <textarea class="query-hidable">select *
+from my_view
+;</textarea>
+      <button class="query-hidable" id="run-sql">Go →</button>
+    </div>
+    <div class="data-preview">
+      <label>Data preview</label>
+      <div class="data-preview-table data-hidable">
+        <table>
+          <thead><tr>
+            <th>#</th>
+            <th>column1<br>(text)</th>
+            <th>other_column<br>(text)</th>
+            <th>history_notes<br>(text)</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <th>0</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent rutrum metus nibh, accumsan dictum ipsum iaculis et. Vestibulum varius, lacus sed sodales porta, enim lectus consequat diam, at porta elit magna eu lectus. Etiam sem quam, tempor a lobortis id, gravida semper nulla. Phasellus imperdiet semper commodo. Pellentesque suscipit hendrerit est, nec bibendum nibh tincidunt quis. Sed sed libero nec eros euismod accumsan</div></td>
+            </tr>
+            <tr>
+              <th>1</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet</div></td>
+            </tr>
+            <tr>
+              <th>2</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent rutrum metus nibh, accumsan dictum ipsum iaculis et. Vestibulum varius, lacus sed sodales porta, enim lectus consequat diam, at porta elit magna eu lectus. Etiam sem quam, tempor a lobortis id, gravida semper nulla. Phasellus imperdiet semper commodo. Pellentesque suscipit hendrerit est, nec bibendum nibh tincidunt quis. Sed sed libero nec eros euismod accumsan</div></td>
+            </tr>
+            <tr>
+              <th>3</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet</div></td>
+            </tr>
+            <tr>
+              <th>4</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent rutrum metus nibh, accumsan dictum ipsum iaculis et. Vestibulum varius, lacus sed sodales porta, enim lectus consequat diam, at porta elit magna eu lectus. Etiam sem quam, tempor a lobortis id, gravida semper nulla. Phasellus imperdiet semper commodo. Pellentesque suscipit hendrerit est, nec bibendum nibh tincidunt quis. Sed sed libero nec eros euismod accumsan</div></td>
+            </tr>
+            <tr>
+              <th>5</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet</div></td>
+            </tr>
+            <tr>
+              <th>6</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent rutrum metus nibh, accumsan dictum ipsum iaculis et. Vestibulum varius, lacus sed sodales porta, enim lectus consequat diam, at porta elit magna eu lectus. Etiam sem quam, tempor a lobortis id, gravida semper nulla. Phasellus imperdiet semper commodo. Pellentesque suscipit hendrerit est, nec bibendum nibh tincidunt quis. Sed sed libero nec eros euismod accumsan</div></td>
+            </tr>
+            <tr>
+              <th>7</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet</div></td>
+            </tr>
+            <tr>
+              <th>8</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent rutrum metus nibh, accumsan dictum ipsum iaculis et. Vestibulum varius, lacus sed sodales porta, enim lectus consequat diam, at porta elit magna eu lectus. Etiam sem quam, tempor a lobortis id, gravida semper nulla. Phasellus imperdiet semper commodo. Pellentesque suscipit hendrerit est, nec bibendum nibh tincidunt quis. Sed sed libero nec eros euismod accumsan</div></td>
+            </tr>
+            <tr>
+              <th>9</th>
+              <td><div>Praesent rutrum metus</div></td>
+              <td><div>Vestibulum varius, lacus sed sodales porta</div></td>
+              <td><div>Lorem ipsum dolor sit amet</div></td>
+            </tr>
+          </tbody>
+        </table>
+        <p><em>An additional 28 rows not shown.</em></p>
+      </div>
+    </div>
+    <div class="prompt-form">
+      <label>Your Prompt</label>
+      <form>
+        <div class="prompt-component">Given the following history of account <span class="parameter-reference" data-parameter-name="ACCOUNT_NAME">ACCOUNT_NAME</span>:</div>
+        <div class="parameter-definitions">
+          <div class="parameter-definition" data-parameter-name="ACCOUNT_NAME">
+            <div>
+              <label class="parameter-name">ACCOUNT_NAME</label> should be a <select class="kind">
+                <option></option>
+                <option>literal value</option>
+                <option>database reference</option>
+              </select>
+            </div>
+            <input class="-defer --for-literal-value" type="text" class="literal-value">
+            <select class="-defer --for-database-reference">
+              <option></option>
+              <option>column1</option>
+              <option>other_column</option>
+              <option>history_notes</option>
+            </select>
+          </div>
+        </div>
+        <div class="prompt-component"><span class="parameter-reference -long" data-parameter-name="HISTORY">HISTORY</span></div>
+        <div class="parameter-definitions">
+          <div class="parameter-definition" data-parameter-name="HISTORY">
+            <div>
+              <label class="parameter-name">HISTORY</label> should be a <select class="kind">
+                <option></option>
+                <option>literal value</option>
+                <option>database reference</option>
+              </select>
+            </div>
+            <input class="-defer --for-literal-value" type="text" class="literal-value">
+            <select class="-defer --for-database-reference">
+              <option></option>
+              <option>column1</option>
+              <option>other_column</option>
+              <option>history_notes</option>
+            </select>
+        </div>
+        </div>
+        <div class="prompt-component">Write a summary.</div>
+        <div class="parameter-definitions">
+        </div>
+        <div class="activation">
+          <button id="run-llm">Go →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="status">
+    <span class="icons">
+      <a rel="toggle-sidebar" href="#">A</a>
+      <a rel="toggle-query"   href="#">1</a>
+      <a rel="toggle-data"    href="#">2</a>
+    </span>
+    This is a status message...
+  </div>
+</main>
+
+<script>
+const fulfillParameter = (name) => {
+  document.querySelectorAll(`[data-parameter-name="${name}"]`).forEach(e => e.classList.add('-fulfilled'));
+};
+const unfulfillParameter = (name) => {
+  document.querySelectorAll(`[data-parameter-name="${name}"]`).forEach(e => e.classList.remove('-fulfilled'));
+};
+
+const maybeFulfillParameter = (name, v) => {
+  if (typeof(v) !== 'undefined' && v != '') {
+    fulfillParameter(name);
+  } else {
+    unfulfillParameter(name);
+  }
+};
+
+const checkPrompts = () => {
+  /* first go through parameter definitions */
+  document.querySelectorAll('div.parameter-definition').forEach(e => {
+    console.log(e);
+    let kind = e.querySelector('.kind').value;
+    let value = undefined;
+
+    if (kind == 'literal value') {
+      value = e.querySelector('.--for-literal-value').value;
+    } else if (kind == 'database reference') {
+      value = e.querySelector('.--for-database-reference').value;
+    }
+
+    maybeFulfillParameter(e.dataset.parameterName, value);
+  });
+
+  /* then go through prompt components */
+  document.querySelectorAll('.prompt-component').forEach(e => {
+    e.classList.toggle('-complete', e.querySelectorAll('.parameter-reference:not(.-fulfilled)').length == 0);
+  });
+
+  /* then (de-)activate the button */
+  document.querySelector('#run-llm').classList.toggle(
+    '-active',
+          document.querySelectorAll('.prompt-component:not(.-complete)').length == 0
+       && document.querySelectorAll('.prompt-component').length > 0);
+};
+
+const toggleCSSVar = (name, a, b) => {
+  const root = document.querySelector(':root');
+  const curval = getComputedStyle(root).getPropertyValue(name);
+  root.style.setProperty(name, curval == a ? b : a);
+};
+
+const toggleCSSClassOn = (selector, className) => {
+  document.querySelectorAll(selector).forEach(e => e.classList.toggle(className));
+};
+
+(() => {
+  checkPrompts();
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelector('a[rel=toggle-sidebar]').addEventListener('click', ev => {
+      ev.preventDefault();
+      toggleCSSVar('--sidebar-width', '20vw', '0');
+    });
+
+    document.querySelector('a[rel=toggle-query]').addEventListener('click', ev => {
+      ev.preventDefault();
+      toggleCSSClassOn('.query-hidable', '-hidden');
+      toggleCSSClassOn('.query-form',    '-collapsed');
+    });
+
+    document.querySelector('a[rel=toggle-data]').addEventListener('click', ev => {
+      ev.preventDefault();
+      toggleCSSClassOn('.data-hidable', '-hidden');
+      toggleCSSClassOn('.data-preview', '-collapsed');
+    });
+  });
+
+  document.querySelectorAll('div.parameter-definition .-defer').forEach(e => {
+    e.classList.add('-hidden');
+    e.classList.remove('-defer');
+  });
+  document.querySelectorAll('div.parameter-definition select.kind').forEach(e => {
+    e.addEventListener('change', ev => {
+      const pops = ev.target.closest('div.parameter-definition');
+      pops.querySelectorAll('.--for-database-reference, .--for-literal-value').forEach(x => x.classList.add('-hidden'));
+      if (ev.target.value == 'literal value') {
+        pops.querySelectorAll('.--for-literal-value').forEach(x => x.classList.remove('-hidden'));
+      }
+      if (ev.target.value == 'database reference') {
+        pops.querySelectorAll('.--for-database-reference').forEach(x => x.classList.remove('-hidden'));
+      }
+    });
+  });
+
+  document.querySelectorAll('div.parameter-definition').forEach(e => {
+    e.addEventListener('change', () => {
+      /*
+      console.log(`ev change fired for ${e.dataset.parameterName}`);
+      let v = undefined;
+
+      if (e.querySelector('.kind').value == 'literal value') {
+        v = e.querySelector('.--for-literal-value').value;
+      } else if (e.querySelector('.kind').value == 'database reference') {
+        v = e.querySelector('.--for-database-reference').value;
+      }
+
+      maybeFulfillParameter(e.dataset.parameterName, v);
+      */
+      checkPrompts();
+    });
+  });
+
+})();
+</script>
+</body>
+</html>
