@@ -89,6 +89,13 @@ main > #studio {
   transition: margin-left 0.8s;
 }
 
+#status { display: flex; }
+#status .message {
+  font-family: monospace;
+  flex-grow: 1;
+  text-align: right;
+}
+
 #sidebar nav {
   padding: 0;
 }
@@ -337,7 +344,8 @@ button.-active {
       <a rel="toggle-query"   href="#">1</a>
       <a rel="toggle-data"    href="#">2</a>
     </span>
-    This is a status message...
+    <span class="message">
+    </span>
   </div>
 </main>
 
@@ -409,6 +417,26 @@ const put = (url, payload) => {
   });
 };
 
+let notifyN = 0;
+let notifications = [];
+const notify = (message, timeout_s) => {
+  notifications.push({m: message, t: timeout_s * 1000});
+  checkStatus();
+};
+const checkStatus = () => {
+  const msg = $('#status .message');
+  if (msg.innerText == '' && notifications.length > 0) {
+    notifyN += 1;
+    const notif = notifications[0];
+    notifications = notifications.slice(1);
+    msg.innerText = `(${notifyN}) ${notif.m}`;
+    window.setTimeout(() => {
+      msg.innerText = '';
+      checkStatus();
+    }, notif.t);
+  }
+};
+
 function Folio(attrs) {
   this.id = attrs.id;
   this.name   = attrs.name   || 'Unnamed Folio';
@@ -429,6 +457,7 @@ Folio.prototype.set = function (attrs) {
       this[k] = attrs[k];
     }
   }
+  notify('saving folio changes to database...', 1);
   return this.save();
 };
 
@@ -822,6 +851,7 @@ const toggleCSSClassOn = (selector, className) => {
   $('nav').addEventListener('click', ev => {
     if (ev.target.matches('a[data-folio-id]')) {
       const id = ev.target.dataset.folioId;
+      notify(`retrieving folio ${id}...`, 1);
       get(`/folio/${id}`)
         .then(r => r.json())
         .then(data => {
