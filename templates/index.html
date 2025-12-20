@@ -383,50 +383,63 @@ const put = (url, payload) => {
     body: JSON.stringify(payload)
   });
 };
-const updateFolio = (obj) => {
-  put(`/folio/${obj.id}`, obj);
+
+function Folio(attrs) {
+  this.id = attrs.id;
+  this.name   = attrs.name   || 'Unnamed Folio';
+  this.prompt = attrs.prompt || '';
+  this.query  = attrs.query  || '';
+  this.params = attrs.params || {};
+
+  this.parsed = undefined;
+}
+
+Folio.prototype.set = function (attrs) {
+  for (let k of ['name', 'prompt', 'query', 'params']) {
+    if (k in attrs) {
+      this[k] = attrs[k];
+    }
+  }
+  return this.save();
 };
 
-let currentFolio = undefined;
-const checkPrompts = () => {
-  /* first go through parameter definitions */
-  let params = {};
-  $$('div.parameter-definition').forEach(e => {
-    let kind = e.querySelector('.kind').value;
-    let value = undefined;
+Folio.prototype.save = function () {
+  console.dir(this);
+  this.parsed = this.parse();
 
-    if (kind == 'literal value') {
-      value = e.querySelector('.--for-literal-value').value;
-    } else if (kind == 'database reference') {
-      value = e.querySelector('.--for-database-reference').value;
-    }
+  if (typeof(this.id) === 'undefined') {
+    return post('/folios', {
+      name  : this.name,
+      prompt: this.prompt,
+      query:  this.query,
+      params: this.params,
+    }).then(r => r.json())
+      .then(data => {
+        this.id = data.id;
+        return Promise.resolve(this);
+      });
 
-    maybeFulfillParameter(e.dataset.parameterName, value);
-    if (kind != '' && typeof(value) !== 'undefined') {
-      params[e.dataset.parameterName] = { kind, value }
-    }
-  });
-
-  /* then go through prompt components */
-  $$('.prompt-component').forEach(e => {
-    e.classList.toggle('-complete', e.querySelectorAll('.parameter-reference:not(.-fulfilled)').length == 0);
-  });
-
-  /* then (de-)activate the button */
-  $('#run-llm').classList.toggle(
-    '-active',
-          $$('.prompt-component:not(.-complete)').length == 0
-       && $$('.prompt-component').length > 0);
-
-  /* then send param updates to the API */
-  if (currentFolio) {
-    currentFolio.params = params;
-    updateFolio(currentFolio);
+  } else {
+    return put(`/folio/${this.id}`, {
+      name  : this.name,
+      prompt: this.prompt,
+      query:  this.query,
+      params: this.params,
+    }).then(_ => Promise.resolve(this));
   }
 };
 
-const parseFolio = (s) => {
-  return s.trim().split(/\n\n+/).map(line => {
+Folio.prototype.rewrite = function (idx, newText) {
+  this.parse();
+  const subs = this.parse().map(x => x.src);
+  subs[idx] = newText.trim();
+  this.prompt = subs.join('\n\n').trim();
+  this.parse();
+};
+
+Folio.prototype.parse = function () {
+  const s = this.prompt;
+  this.parsed = s.trim().split(/\n\n+/).map(line => {
     let buffer = []; /* list of text and references */
     let token  = { t:'text', v:'' }; /* token  we've assembled so far... */
     for (let i = 0; i < line.length; i++) {
@@ -460,16 +473,140 @@ const parseFolio = (s) => {
       src: line,
       tokens: buffer,
     };
-  })
+  });
+  return this.parsed;
 };
 
-const mergeFolio = (folio, component, index) => {
-  fx = folio.map(f => f.src);
-  fx[index] = component;
-  return parseFolio(fx.join('\n\n'));
+Folio.prototype.mount = function (mountpoint) {
+  if (typeof(mountpoint) === 'undefined') {
+    mountpoint = $('.prompt-form form');
+  }
+  const run = mountpoint.querySelector('.activation');
+  while (mountpoint.firstChild) { mountpoint.removeChild(mountpoint.firstChild) }
+
+  /* keep track of the parameters we have already
+     built definition forms for, so we don't
+     double up and sow confusion. */
+  paramsDefined = {};
+
+  this.parse().forEach((f, i) => {
+    const pc = document.createElement('div');
+    const pd = document.createElement('div');
+    f.tokens.forEach(token => {
+      if (token.t == 'text') {
+        pc.appendChild(document.createTextNode(token.v));
+      } else {
+        const ref = document.createElement('span');
+        ref.classList.add('parameter-reference');
+        ref.dataset.parameterName = token.v;
+        ref.appendChild(document.createTextNode(token.v));
+        pc.appendChild(ref);
+
+        if (!(token.v in paramsDefined)) {
+          paramsDefined[token.v] = true;
+          const pd1 = $('template#parameter-definition-template').content.cloneNode(true);
+          pd1.querySelector('.parameter-name').innerText = token.v;
+          pd1.querySelector('.parameter-definition').dataset.parameterName = token.v;
+
+          /* populate database columns */
+          const cols = pd1.querySelector('.--for-database-reference');
+          $the.columns.forEach(col => {
+            const opt = document.createElement('option');
+            opt.value = col;
+            opt.innerText = col;
+            cols.appendChild(opt);
+          });
+
+          if (token.v in this.params) {
+            pd1.querySelector('.kind').value = this.params[token.v].kind;
+            if (this.params[token.v].kind == 'literal value') {
+              pd1.querySelector('.--for-literal-value').value = this.params[token.v].value;
+              pd1.querySelector('.--for-literal-value').classList.remove('-hidden');
+            }
+            if (this.params[token.v].kind == 'database reference') {
+              pd1.querySelector('.--for-database-reference').value = this.params[token.v].value;
+              pd1.querySelector('.--for-database-reference').classList.remove('-hidden');
+            }
+          }
+          pd.appendChild(pd1);
+        }
+      }
+    });
+    const x = document.createElement('a');
+    x.innerText = '(edit)';
+    x.setAttribute('rel', 'edit');
+    x.classList.add('-hover');
+    x.addEventListener('click', ev => {
+      ev.preventDefault();
+      $$('.prompt-component, .prompt-definitions').forEach(e => e.classList.add('-dim'));
+      pc.classList.remove('-dim');
+      while (pc.firstChild) {
+        pc.removeChild(pc.firstChild);
+      }
+      const ta = document.createElement('textarea');
+      ta.value = f.src;
+      while (ta.value.split(/\n/).length < 5) {
+        ta.value += '\n';
+      }
+      ta.addEventListener('blur', ev => {
+        this.rewrite(i, ta.value);
+        redrawEditor();
+      });
+      pc.appendChild(ta);
+      ta.focus();
+    });
+    pc.appendChild(x);
+
+    pc.classList.add('prompt-component');
+    pd.classList.add('prompt-definitions');
+    mountpoint.appendChild(pc);
+    mountpoint.appendChild(pd);
+  });
+  mountpoint.appendChild(run);
+  checkPrompts();
 };
 
-let knownColumns = [];
+let $the = {
+  folio: undefined,
+  data: undefined,
+  columns: [],
+};
+const checkPrompts = () => {
+  /* first go through parameter definitions */
+  let params = {};
+  $$('div.parameter-definition').forEach(e => {
+    let kind = e.querySelector('.kind').value;
+    let value = undefined;
+
+    if (kind == 'literal value') {
+      value = e.querySelector('.--for-literal-value').value;
+    } else if (kind == 'database reference') {
+      value = e.querySelector('.--for-database-reference').value;
+    }
+
+    maybeFulfillParameter(e.dataset.parameterName, value);
+    if (kind != '' && typeof(value) !== 'undefined') {
+      params[e.dataset.parameterName] = { kind, value }
+    }
+  });
+
+  /* then go through prompt components */
+  $$('.prompt-component').forEach(e => {
+    e.classList.toggle('-complete', e.querySelectorAll('.parameter-reference:not(.-fulfilled)').length == 0);
+  });
+
+  /* then (de-)activate the button */
+  $('#run-llm').classList.toggle(
+    '-active',
+          $$('.prompt-component:not(.-complete)').length == 0
+       && $$('.prompt-component').length > 0);
+
+  /* then send param updates to the API */
+  if ($the.folio) {
+    $the.folio.set({ params: params });
+  }
+};
+
 const previewData = (data) => {
   const thead = $('.data-preview-table thead');
   while (thead.firstChild) { thead.removeChild(thead.firstChild) }
@@ -488,7 +625,7 @@ const previewData = (data) => {
     trh.appendChild(th);
     columns.push(k);
   }
-  knownColumns = columns;
+  $the.columns = columns;
   thead.appendChild(trh);
 
   for (let i = 0; i < data.length; i++) {
@@ -505,92 +642,13 @@ const previewData = (data) => {
   }
 };
 
-const mountFolio = (folio, params, form) => {
-    if (typeof(form) === 'undefined') {
-      form = $('.prompt-form form');
-    }
-    const run = form.querySelector('.activation');
-    while (form.firstChild) { form.removeChild(form.firstChild) }
-
-    /* keep track of the parameters we have already
-       built definition forms for, so we don't
-       double up and sow confusion. */
-    paramsDefined = {};
-
-    folio.forEach((f, i) => {
-      const pc = document.createElement('div');
-      const pd = document.createElement('div');
-      f.tokens.forEach(token => {
-        if (token.t == 'text') {
-          pc.appendChild(document.createTextNode(token.v));
-        } else {
-          const ref = document.createElement('span');
-          ref.classList.add('parameter-reference');
-          ref.dataset.parameterName = token.v;
-          ref.appendChild(document.createTextNode(token.v));
-          pc.appendChild(ref);
-
-          if (!(token.v in paramsDefined)) {
-            paramsDefined[token.v] = true;
-            const pd1 = $('template#parameter-definition-template').content.cloneNode(true);
-            pd1.querySelector('.parameter-name').innerText = token.v;
-            pd1.querySelector('.parameter-definition').dataset.parameterName = token.v;
-
-            /* populate database columns */
-            const cols = pd1.querySelector('.--for-database-reference');
-            knownColumns.forEach(col => {
-              const opt = document.createElement('option');
-              opt.value = col;
-              opt.innerText = col;
-              cols.appendChild(opt);
-            });
-
-            if (token.v in params) {
-              pd1.querySelector('.kind').value = params[token.v].kind;
-              if (params[token.v].kind == 'literal value') {
-                pd1.querySelector('.--for-literal-value').value = params[token.v].value;
-                pd1.querySelector('.--for-literal-value').classList.remove('-hidden');
-              }
-              if (params[token.v].kind == 'database reference') {
-                pd1.querySelector('.--for-database-reference').value = params[token.v].value;
-                pd1.querySelector('.--for-database-reference').classList.remove('-hidden');
-              }
-            }
-            pd.appendChild(pd1);
-          }
-        }
-      });
-      const x = document.createElement('a');
-      x.innerText = '(edit)';
-      x.setAttribute('rel', 'edit');
-      x.classList.add('-hover');
-      x.addEventListener('click', ev => {
-        ev.preventDefault();
-        $$('.prompt-component, .prompt-definitions').forEach(e => e.classList.add('-dim'));
-        pc.classList.remove('-dim');
-        while (pc.firstChild) {
-          pc.removeChild(pc.firstChild);
-        }
-        const ta = document.createElement('textarea');
-        ta.value = f.src;
-        while (ta.value.split(/\n/).length < 5) {
-          ta.value += '\n';
-        }
-        ta.addEventListener('blur', ev => {
-          mountFolio(mergeFolio(folio, ta.value.trim(), i), params, form);
-        });
-        pc.appendChild(ta);
-        ta.focus();
-      });
-      pc.appendChild(x);
-
-      pc.classList.add('prompt-component');
-      pd.classList.add('prompt-definitions');
-      form.appendChild(pc);
-      form.appendChild(pd);
-    });
-    form.appendChild(run);
-    checkPrompts();
+const redrawEditor = () => {
+  if ($the.data) {
+    previewData($the.data);
+  }
+  if ($the.folio) {
+    $the.folio.mount();
+  }
 };
 
 const toggleCSSVar = (name, a, b) => {
@@ -655,11 +713,12 @@ const toggleCSSClassOn = (selector, className) => {
     $('#modal .modal-fg > .modal-new-folio').classList.remove('-hidden');
     $('#modal').style.display = 'block';
     */
-    $('h1 input').value = 'Unnamed Folio';
-    $('textarea[name=sql]').value = '';
-    mountFolio(
-      parseFolio('Tell me a funny story about [DB_TYPE] databases.'),
-      {});
+    let f = new Folio({
+      name: 'Unnamed Folio',
+      query: '',
+      prompt: 'Tell me a funny story about [DB_TYPE] databases.',
+    });
+    f.mount();
   });
 
   /*
@@ -679,7 +738,8 @@ const toggleCSSClassOn = (selector, className) => {
       .then(r => r.json())
       .then(data => {
         if (data.status == 'ok') {
-          previewData(data.data);
+          $the.data = data.data;
+          redrawEditor()
         } else {
           const err = form.querySelector('.error');
           if (data.status == 'error') {
@@ -695,14 +755,13 @@ const toggleCSSClassOn = (selector, className) => {
 
   const handler_submitQuery = (form) => {
     const q = form.elements.sql.value;
-    if (currentFolio.query.trim() == '') {
+    if (q.trim() == '') {
       console.log('not submitting empty sql query...');
     } else {
       submitQuery(form);
     }
-    if (currentFolio) {
-      currentFolio.query = q;
-      updateFolio(currentFolio);
+    if ($the.folio) {
+      $the.folio.set({ query: q });
     }
   }
   $('.query-form form').addEventListener('submit', (ev) => {
@@ -716,11 +775,8 @@ const toggleCSSClassOn = (selector, className) => {
   });
 
   $('h1 input').addEventListener('change', ev => {
-    console.dir(ev);
-    console.dir(currentFolio);
-    if (currentFolio) {
-      currentFolio.name = ev.target.value;
-      updateFolio(currentFolio);
+    if ($the.folio) {
+      $the.folio.set({ name: ev.target.value });
     }
   });
 
@@ -736,12 +792,39 @@ const toggleCSSClassOn = (selector, className) => {
           submitQuery($('.query-form form'))
             .then(d => {
               if (d.status == 'ok') {
-                mountFolio(parseFolio(data.prompt), data.params);
-                currentFolio = data;
-                currentFolio.name = ev.target.innerText;
+                $the.folio = new Folio(data);
+                redrawEditor();
               }
             });
         });
+    }
+  });
+
+  $('#run-llm').addEventListener('click', ev => {
+    if (ev.target.matches('#run-llm.-active')) {
+      console.dir($the.folio);
+      console.dir($the.data);
+
+      if ($the.data) {
+        const out = $('.rendered-prompts');
+        while (out.firstChild) { out.removeChild(out.firstChild); }
+        for (let data of $the.data) {
+          let rplca = {};
+          for (let k in $the.folio.params) {
+            const p = $the.folio.params[k];
+            if (p.kind == 'database reference') {
+              rplca[k] = data[p.value];
+            } else if (p.kind == 'literal value') {
+              rplca[k] = p.value;
+            }
+          }
+          out.appendChild(document.createElement('hr'));
+          const para = document.createElement('div');
+          para.classList.add('para');
+          para.innerText = $the.folio.prompt.replace(/\[(.*?)\]/g, (m, name) => { console.dir(name); return rplca[name] });
+          out.appendChild(para);
+        }
+      }
     }
   });
 
