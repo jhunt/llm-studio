@@ -42,6 +42,9 @@ body a {
   margin-bottom: 9pt !important;
   transition: margin-bottom: 0.8s;
 }
+.-dim {
+  opacity: 0.3 !important;
+}
 
 main {
   width: 100%; height: 100%;
@@ -156,6 +159,19 @@ button.-active {
 .prompt-form .prompt-component span.parameter-reference.-long::after {
   content: '...';
   color: var(--fg-color-text);
+}
+.prompt-form .prompt-component a[rel=edit] {
+  display: block;
+  cursor: pointer;
+  margin-top: 1em;
+}
+.prompt-form .prompt-component textarea {
+  width: 80%;
+  color: #fff; background-color: #333;
+  outline: none; border: none;
+  field-sizing: content;
+  font-size: 110%;
+  padding: 1em;
 }
 
 .prompt-form .parameter-definition {
@@ -356,6 +372,9 @@ const put = (url, payload) => {
     body: JSON.stringify(payload)
   });
 };
+const updateFolio = obj => {
+  put(`/folio/${obj.name}`, obj);
+};
 
 let currentFolio = undefined;
 const checkPrompts = () => {
@@ -426,8 +445,17 @@ const parseFolio = (s) => {
     if (token.v.trim() != '') {
       buffer.push(token);
     }
-    return buffer;
+    return {
+      src: line,
+      tokens: buffer,
+    };
   })
+};
+
+const mergeFolio = (folio, component, index) => {
+  fx = folio.map(f => f.src);
+  fx[index] = component;
+  return parseFolio(fx.join('\n\n'));
 };
 
 let knownColumns = [];
@@ -478,10 +506,10 @@ const mountFolio = (folio, params, form) => {
        double up and sow confusion. */
     paramsDefined = {};
 
-    folio.forEach(f => {
+    folio.forEach((f, i) => {
       const pc = document.createElement('div');
       const pd = document.createElement('div');
-      f.forEach(token => {
+      f.tokens.forEach(token => {
         if (token.t == 'text') {
           pc.appendChild(document.createTextNode(token.v));
         } else {
@@ -521,6 +549,30 @@ const mountFolio = (folio, params, form) => {
           }
         }
       });
+      const x = document.createElement('a');
+      x.innerText = '(edit)';
+      x.setAttribute('rel', 'edit');
+      x.classList.add('-hover');
+      x.addEventListener('click', ev => {
+        ev.preventDefault();
+        $$('.prompt-component, .prompt-definitions').forEach(e => e.classList.add('-dim'));
+        pc.classList.remove('-dim');
+        while (pc.firstChild) {
+          pc.removeChild(pc.firstChild);
+        }
+        const ta = document.createElement('textarea');
+        ta.value = f.src;
+        while (ta.value.split(/\n/).length < 5) {
+          ta.value += '\n';
+        }
+        ta.addEventListener('blur', ev => {
+          mountFolio(mergeFolio(folio, ta.value.trim(), i), params, form);
+        });
+        pc.appendChild(ta);
+        resize();
+      });
+      pc.appendChild(x);
+
       pc.classList.add('prompt-component');
       pd.classList.add('prompt-definitions');
       form.appendChild(pc);
