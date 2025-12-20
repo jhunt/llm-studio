@@ -222,6 +222,7 @@ button.-active {
 }
 
 
+/*
 .modal-bg {
   background-color: rgba(10, 10, 33, 0.9);
   position: fixed;
@@ -258,6 +259,7 @@ button.-active {
   display: block;
   margin: 1em 0;
 }
+*/
 </style>
 </head>
 <body>
@@ -314,6 +316,7 @@ button.-active {
   </div>
 </main>
 
+<!--
 <div id="modal" class="modal-bg">
   <div class="modal-fg">
     <div class="modal-new-folio -hidden">
@@ -326,6 +329,7 @@ button.-active {
     </div>
   </div>
 </div>
+-->
 
 <template id="parameter-definition-template">
   <div class="parameter-definition">
@@ -646,11 +650,19 @@ const toggleCSSClassOn = (selector, className) => {
 
   $('[rel=new-folio]').addEventListener('click', ev => {
     ev.preventDefault();
+    /*
     $('#modal .modal-fg > *').classList.add('-hidden');
     $('#modal .modal-fg > .modal-new-folio').classList.remove('-hidden');
     $('#modal').style.display = 'block';
+    */
+    $('h1 input').value = 'Unnamed Folio';
+    $('textarea[name=sql]').value = '';
+    mountFolio(
+      parseFolio('Tell me a funny story about [DB_TYPE] databases.'),
+      {});
   });
 
+  /*
   $('.modal-new-folio form').addEventListener('submit', ev => {
     ev.preventDefault();
     post('/folios', {
@@ -659,6 +671,7 @@ const toggleCSSClassOn = (selector, className) => {
     });
     document.location.href = document.location.href;
   });
+  */
 
   const submitQuery = (form) => {
     form.querySelector('.error').classList.add('-hidden');
