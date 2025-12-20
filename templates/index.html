@@ -617,7 +617,6 @@ const toggleCSSClassOn = (selector, className) => {
           }
           err.classList.remove('-hidden');
         }
-        console.log('resolving promise...');
         return Promise.resolve(data);
       });
   };
@@ -652,7 +651,6 @@ const toggleCSSClassOn = (selector, className) => {
                 mountFolio(parseFolio(data.prompt), data.params);
                 currentFolio = data;
                 currentFolio.name = ev.target.innerText;
-                console.dir({'current_folio': currentFolio});
               }
             });
         });
