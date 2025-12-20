@@ -279,11 +279,9 @@ button.-active {
     <div class="query-form">
       <form>
         <label>Database query</label>
-        <textarea name="sql" class="query-hidable">select *
-from my_view
-;</textarea>
+        <textarea name="sql" class="query-hidable"></textarea>
         <span class="error -hidden"></span>
-        <button type="submit" class="query-hidable" id="run-sql">Go →</button>
+        <button type="submit" class="query-hidable">Go →</button>
       </form>
     </div>
     <div class="data-preview">
@@ -683,21 +681,24 @@ const toggleCSSClassOn = (selector, className) => {
       });
   };
 
-  $('.query-form form').addEventListener('submit', (ev) => {
-    ev.preventDefault();
-    submitQuery(ev.target);
+  const handler_submitQuery = (form) => {
+    if (form.elements.sql.value.trim() == '') {
+      console.log('not submitting empty sql query...');
+      return;
+    }
+    submitQuery(form);
     if (currentFolio) {
-      currentFolio.query = ev.target.value;
+      currentFolio.query = form.value;
       updateFolio(currentFolio);
     }
+  }
+  $('.query-form form').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    handler_submitQuery(ev.target);
   });
   $('.query-form form textarea[name=sql]').addEventListener('keydown', (ev) => {
     if (ev.key == 'Enter' && ev.metaKey) {
-      submitQuery(ev.target.closest('form'));
-      if (currentFolio) {
-        currentFolio.query = ev.target.value;
-        updateFolio(currentFolio);
-      }
+      handler_submitQuery(ev.target.closest('form'));
     }
   });
 
