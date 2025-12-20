@@ -694,13 +694,14 @@ const toggleCSSClassOn = (selector, className) => {
   };
 
   const handler_submitQuery = (form) => {
-    if (form.elements.sql.value.trim() == '') {
+    const q = form.elements.sql.value;
+    if (currentFolio.query.trim() == '') {
       console.log('not submitting empty sql query...');
-      return;
+    } else {
+      submitQuery(form);
     }
-    submitQuery(form);
     if (currentFolio) {
-      currentFolio.query = form.value;
+      currentFolio.query = q;
       updateFolio(currentFolio);
     }
   }
