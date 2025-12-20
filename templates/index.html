@@ -321,11 +321,14 @@ from my_view
 </template>
 
 <script>
+const $  = x => document.querySelector(x);
+const $$ = x => document.querySelectorAll(x);
+
 const fulfillParameter = (name) => {
-  document.querySelectorAll(`[data-parameter-name="${name}"]`).forEach(e => e.classList.add('-fulfilled'));
+  $$(`[data-parameter-name="${name}"]`).forEach(e => e.classList.add('-fulfilled'));
 };
 const unfulfillParameter = (name) => {
-  document.querySelectorAll(`[data-parameter-name="${name}"]`).forEach(e => e.classList.remove('-fulfilled'));
+  $$(`[data-parameter-name="${name}"]`).forEach(e => e.classList.remove('-fulfilled'));
 };
 
 const maybeFulfillParameter = (name, v) => {
@@ -336,13 +339,21 @@ const maybeFulfillParameter = (name, v) => {
   }
 };
 
-const updateFolio = obj => {
-  fetch(`/folio/${obj.name}`, {
-    'method': 'PUT',
-    'headers': {
-      'Content-Type': 'application/json',
-    },
-    'body': JSON.stringify(obj)
+const get = (url) => {
+  return fetch(url);
+};
+const post = (url, payload) => {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+};
+const put = (url, payload) => {
+  return fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
   });
 };
 
@@ -350,7 +361,7 @@ let currentFolio = undefined;
 const checkPrompts = () => {
   /* first go through parameter definitions */
   let params = {};
-  document.querySelectorAll('div.parameter-definition').forEach(e => {
+  $$('div.parameter-definition').forEach(e => {
     let kind = e.querySelector('.kind').value;
     let value = undefined;
 
@@ -367,15 +378,15 @@ const checkPrompts = () => {
   });
 
   /* then go through prompt components */
-  document.querySelectorAll('.prompt-component').forEach(e => {
+  $$('.prompt-component').forEach(e => {
     e.classList.toggle('-complete', e.querySelectorAll('.parameter-reference:not(.-fulfilled)').length == 0);
   });
 
   /* then (de-)activate the button */
-  document.querySelector('#run-llm').classList.toggle(
+  $('#run-llm').classList.toggle(
     '-active',
-          document.querySelectorAll('.prompt-component:not(.-complete)').length == 0
-       && document.querySelectorAll('.prompt-component').length > 0);
+          $$('.prompt-component:not(.-complete)').length == 0
+       && $$('.prompt-component').length > 0);
 
   /* then send param updates to the API */
   if (currentFolio) {
@@ -421,10 +432,10 @@ const parseFolio = (s) => {
 
 let knownColumns = [];
 const previewData = (data) => {
-  const thead = document.querySelector('.data-preview-table thead');
+  const thead = $('.data-preview-table thead');
   while (thead.firstChild) { thead.removeChild(thead.firstChild) }
 
-  const tbody = document.querySelector('.data-preview-table tbody');
+  const tbody = $('.data-preview-table tbody');
   while (tbody.firstChild) { tbody.removeChild(tbody.firstChild) }
 
   const trh = document.createElement('tr');
@@ -457,7 +468,7 @@ const previewData = (data) => {
 
 const mountFolio = (folio, params, form) => {
     if (typeof(form) === 'undefined') {
-      form = document.querySelector('.prompt-form form');
+      form = $('.prompt-form form');
     }
     const run = form.querySelector('.activation');
     while (form.firstChild) { form.removeChild(form.firstChild) }
@@ -482,7 +493,7 @@ const mountFolio = (folio, params, form) => {
 
           if (!(token.v in paramsDefined)) {
             paramsDefined[token.v] = true;
-            const pd1 = document.querySelector('template#parameter-definition-template').content.cloneNode(true);
+            const pd1 = $('template#parameter-definition-template').content.cloneNode(true);
             pd1.querySelector('.parameter-name').innerText = token.v;
             pd1.querySelector('.parameter-definition').dataset.parameterName = token.v;
 
@@ -520,38 +531,38 @@ const mountFolio = (folio, params, form) => {
 };
 
 const toggleCSSVar = (name, a, b) => {
-  const root = document.querySelector(':root');
+  const root = $(':root');
   const curval = getComputedStyle(root).getPropertyValue(name);
   root.style.setProperty(name, curval == a ? b : a);
 };
 
 const toggleCSSClassOn = (selector, className) => {
-  document.querySelectorAll(selector).forEach(e => e.classList.toggle(className));
+  $$(selector).forEach(e => e.classList.toggle(className));
 };
 
 (() => {
   checkPrompts();
 
   document.addEventListener('DOMContentLoaded', () => {
-    document.querySelector('a[rel=toggle-sidebar]').addEventListener('click', ev => {
+    $('a[rel=toggle-sidebar]').addEventListener('click', ev => {
       ev.preventDefault();
       toggleCSSVar('--sidebar-width', '20vw', '0');
     });
 
-    document.querySelector('a[rel=toggle-query]').addEventListener('click', ev => {
+    $('a[rel=toggle-query]').addEventListener('click', ev => {
       ev.preventDefault();
       toggleCSSClassOn('.query-hidable', '-hidden');
       toggleCSSClassOn('.query-form',    '-collapsed');
     });
 
-    document.querySelector('a[rel=toggle-data]').addEventListener('click', ev => {
+    $('a[rel=toggle-data]').addEventListener('click', ev => {
       ev.preventDefault();
       toggleCSSClassOn('.data-hidable', '-hidden');
       toggleCSSClassOn('.data-preview', '-collapsed');
     });
   });
 
-  document.querySelector('.prompt-form form').addEventListener('change', ev => {
+  $('.prompt-form form').addEventListener('change', ev => {
     /* processes changes to the source disposition of a parameter */
     if (ev.target.matches('select.kind')) {
       const pops = ev.target.closest('div.parameter-definition');
@@ -566,48 +577,34 @@ const toggleCSSClassOn = (selector, className) => {
 
     /* process changes to the source configuration of a parameter */
     if (ev.target.matches('.--for-literal-value, .--for-database-reference')) {
-      console.log(`checking prompts...`);
       checkPrompts();
     }
   });
 
-  document.querySelectorAll('div.parameter-definition').forEach(e => {
+  $$('div.parameter-definition').forEach(e => {
     e.addEventListener('change', () => checkPrompts());
   });
 
-  document.querySelector('[rel=new-folio]').addEventListener('click', ev => {
+  $('[rel=new-folio]').addEventListener('click', ev => {
     ev.preventDefault();
-    document.querySelector('#modal .modal-fg > *').classList.add('-hidden');
-    document.querySelector('#modal .modal-fg > .modal-new-folio').classList.remove('-hidden');
-    document.querySelector('#modal').style.display = 'block';
+    $('#modal .modal-fg > *').classList.add('-hidden');
+    $('#modal .modal-fg > .modal-new-folio').classList.remove('-hidden');
+    $('#modal').style.display = 'block';
   });
 
-  document.querySelector('.modal-new-folio form').addEventListener('submit', ev => {
+  $('.modal-new-folio form').addEventListener('submit', ev => {
     ev.preventDefault();
-    fetch('/folios', {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: ev.target.elements.name.value,
-        prompt: ev.target.elements.prompt.value
-      })
+    post('/folios', {
+      name: ev.target.elements.name.value,
+      prompt: ev.target.elements.prompt.value
     });
     document.location.href = document.location.href;
   });
 
   const submitQuery = (form) => {
     form.querySelector('.error').classList.add('-hidden');
-    return fetch('/q', {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        sql: form.elements.sql.value
-      })
-    }).then(r => r.json())
+    return post('/q', { sql: form.elements.sql.value })
+      .then(r => r.json())
       .then(data => {
         if (data.status == 'ok') {
           previewData(data.data);
@@ -625,7 +622,7 @@ const toggleCSSClassOn = (selector, className) => {
       });
   };
 
-  document.querySelector('.query-form form').addEventListener('submit', (ev) => {
+  $('.query-form form').addEventListener('submit', (ev) => {
     ev.preventDefault();
     submitQuery(ev.target);
     if (currentFolio) {
@@ -633,7 +630,7 @@ const toggleCSSClassOn = (selector, className) => {
       updateFolio(currentFolio);
     }
   });
-  document.querySelector('.query-form form textarea[name=sql]').addEventListener('keydown', (ev) => {
+  $('.query-form form textarea[name=sql]').addEventListener('keydown', (ev) => {
     if (ev.key == 'Enter' && ev.metaKey) {
       submitQuery(ev.target.closest('form'));
       if (currentFolio) {
@@ -643,13 +640,13 @@ const toggleCSSClassOn = (selector, className) => {
     }
   });
 
-  document.querySelector('nav').addEventListener('click', ev => {
+  $('nav').addEventListener('click', ev => {
     if (ev.target.matches('a')) {
-      fetch(`/folio/${ev.target.innerText}`)
+      get(`/folio/${ev.target.innerText}`)
         .then(r => r.json())
         .then(data => {
-          document.querySelector('textarea[name=sql]').value = data.query;
-          submitQuery(document.querySelector('.query-form form'))
+          $('textarea[name=sql]').value = data.query;
+          submitQuery($('.query-form form'))
             .then(d => {
               if (d.status == 'ok') {
                 mountFolio(parseFolio(data.prompt), data.params);
