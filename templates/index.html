@@ -64,7 +64,9 @@ main > #sidebar { border-right: 1px solid #333; }
    main content pane. */
 main > #status,
 main > #sidebar nav,
-main > #studio { box-sizing: border-box; padding: 1em; }
+main > #studio { box-sizing: border-box; }
+main > #status,
+main > #studio { padding: 1em; }
 
 main > #sidebar nav { width: var(--initial-sidebar-width); }
 
@@ -87,6 +89,28 @@ main > #studio {
   transition: margin-left 0.8s;
 }
 
+#sidebar nav {
+  padding: 0;
+}
+#sidebar nav ol {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1em 0;
+}
+#sidebar nav ol li {
+  border-bottom: 1px solid #333;
+  padding: 0.5em 1em;
+}
+#sidebar nav ol li a {
+  text-decoration: none;
+  color: inherit;
+}
+#sidebar nav > a {
+  display: block;
+  cursor: pointer;
+  padding: 1em;
+  text-align: center;
+}
 
 h1 input {
   background-color: inherit;
