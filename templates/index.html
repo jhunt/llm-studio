@@ -303,6 +303,7 @@ button.-active {
           <button id="run-llm">Go →</button>
         </div>
       </form>
+      <div class="rendered-prompts"></div>
     </div>
   </div>
 
@@ -391,6 +392,10 @@ function Folio(attrs) {
   this.query  = attrs.query  || '';
   this.params = attrs.params || {};
 
+  if (this.prompt.trim == '') {
+    this.prompt = "Please solve all the worlds' problems with artificial intelligence.  Thanks.";
+  }
+
   this.parsed = undefined;
 }
 
@@ -416,6 +421,7 @@ Folio.prototype.save = function () {
     }).then(r => r.json())
       .then(data => {
         this.id = data.id;
+        $('h1 input').dataset.folioId = this.id;
         return Promise.resolve(this);
       });
 
@@ -481,6 +487,15 @@ Folio.prototype.mount = function (mountpoint) {
   if (typeof(mountpoint) === 'undefined') {
     mountpoint = $('.prompt-form form');
   }
+
+  if (this.id) {
+    $('h1 input').dataset.folioId = this.id;
+  } else {
+    delete $('h1 input').dataset.folioId;
+  }
+  $('h1 input').value = this.name;
+  $('textarea[name=sql]').value = this.query;
+
   const run = mountpoint.querySelector('.activation');
   while (mountpoint.firstChild) { mountpoint.removeChild(mountpoint.firstChild) }
 
@@ -550,7 +565,7 @@ Folio.prototype.mount = function (mountpoint) {
       }
       ta.addEventListener('blur', ev => {
         this.rewrite(i, ta.value);
-        redrawEditor();
+        redraw();
       });
       pc.appendChild(ta);
       ta.focus();
@@ -642,7 +657,7 @@ const previewData = (data) => {
   }
 };
 
-const redrawEditor = () => {
+const redraw = () => {
   if ($the.data) {
     previewData($the.data);
   }
@@ -713,12 +728,12 @@ const toggleCSSClassOn = (selector, className) => {
     $('#modal .modal-fg > .modal-new-folio').classList.remove('-hidden');
     $('#modal').style.display = 'block';
     */
-    let f = new Folio({
+    $the.folio = new Folio({
       name: 'Unnamed Folio',
       query: '',
       prompt: 'Tell me a funny story about [DB_TYPE] databases.',
     });
-    f.mount();
+    $the.folio.mount();
   });
 
   /*
@@ -739,7 +754,7 @@ const toggleCSSClassOn = (selector, className) => {
       .then(data => {
         if (data.status == 'ok') {
           $the.data = data.data;
-          redrawEditor()
+          redraw()
         } else {
           const err = form.querySelector('.error');
           if (data.status == 'error') {
@@ -786,14 +801,12 @@ const toggleCSSClassOn = (selector, className) => {
       get(`/folio/${id}`)
         .then(r => r.json())
         .then(data => {
-          $('h1 input').dataset.folioId = id;
-          $('h1 input').value = data.name;
-          $('textarea[name=sql]').value = data.query;
+          $the.folio = new Folio(data);
+          $the.folio.mount();
           submitQuery($('.query-form form'))
             .then(d => {
               if (d.status == 'ok') {
-                $the.folio = new Folio(data);
-                redrawEditor();
+                redraw();
               }
             });
         });
