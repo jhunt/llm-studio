@@ -576,7 +576,7 @@ const mountFolio = (folio, params, form) => {
           mountFolio(mergeFolio(folio, ta.value.trim(), i), params, form);
         });
         pc.appendChild(ta);
-        resize();
+        ta.focus();
       });
       pc.appendChild(x);
 
