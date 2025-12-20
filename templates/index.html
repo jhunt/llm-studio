@@ -267,7 +267,7 @@ button.-active {
     <nav>
       <ol>
         {% for folio in folios %}
-        <li><a href="#">{{ folio.name }}</a></li>
+        <li><a href="#" data-folio-id="{{ folio.id }}">{{ folio.name }}</a></li>
         {% endfor %}
       </ol>
       <a class="action" rel="new-folio">New Folio</a>
@@ -379,9 +379,8 @@ const put = (url, payload) => {
     body: JSON.stringify(payload)
   });
 };
-const updateFolio = (obj, name) => {
-  if (typeof(name) === 'undefined') { name = obj.name }
-  put(`/folio/${name}`, obj);
+const updateFolio = (obj) => {
+  put(`/folio/${obj.id}`, obj);
 };
 
 let currentFolio = undefined;
@@ -706,18 +705,19 @@ const toggleCSSClassOn = (selector, className) => {
     console.dir(ev);
     console.dir(currentFolio);
     if (currentFolio) {
-      const oldName = currentFolio.name;
       currentFolio.name = ev.target.value;
-      updateFolio(currentFolio, oldName);
+      updateFolio(currentFolio);
     }
   });
 
   $('nav').addEventListener('click', ev => {
-    if (ev.target.matches('a')) {
-      get(`/folio/${ev.target.innerText}`)
+    if (ev.target.matches('a[data-folio-id]')) {
+      const id = ev.target.dataset.folioId;
+      get(`/folio/${id}`)
         .then(r => r.json())
         .then(data => {
-          $('h1 input').value = ev.target.innerText;
+          $('h1 input').dataset.folioId = id;
+          $('h1 input').value = data.name;
           $('textarea[name=sql]').value = data.query;
           submitQuery($('.query-form form'))
             .then(d => {

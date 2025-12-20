@@ -9,28 +9,30 @@ def run_meta_query(sql):
     c.execute(sql)
     return [dict(x) for x in c.fetchall()]
 
-def get_folio(name):
+def get_folio(id):
   with sqlite3.connect('studio.db') as db:
     db.row_factory = sqlite3.Row
     c = db.cursor()
     c.execute('''
-    select name, prompt, query, params
+    select id, name, prompt, query, params
       from folios
-     where name = ?
-    ''', (name,))
+     where id = ?
+    ''', (id,))
     v = dict(c.fetchone())
     v['params'] = json.loads(v['params'])
     return v
 
 def insert_folio(name, prompt):
+  id = uuid4()
   with sqlite3.connect('studio.db') as db:
     c = db.cursor()
     c.execute('''
-    insert into folios (name, prompt, query, params)
-      values (?, ?, 'select * from table;', '{}')
-    ''', (name, prompt))
+    insert into folios (id, name, prompt, query, params)
+      values (?, ?, ?, 'select * from table;', '{}')
+    ''', (id, name, prompt))
+    return id
 
-def update_folio(name, rename, prompt, query, params):
+def update_folio(id, name, prompt, query, params):
   with sqlite3.connect('studio.db') as db:
     c = db.cursor()
     c.execute('''
@@ -39,8 +41,8 @@ def update_folio(name, rename, prompt, query, params):
            prompt = ?,
            query = ?,
            params = ?
-     where name = ?
-    ''', (rename, prompt, query, params, name))
+     where id = ?
+    ''', (name, prompt, query, params, id))
 
 app = flask.Flask(__name__)
 
@@ -51,17 +53,17 @@ def index():
 @app.route("/folios", methods=['POST'])
 def post_folios():
   attrs = flask.request.get_json()
-  insert_folio(attrs['name'], attrs['prompt'])
-  return ('', 202)
+  id = insert_folio(attrs['name'], attrs['prompt'])
+  return { 'id': id }
 
-@app.route("/folio/<name>", methods=['PUT', 'GET'])
-def put_folio(name):
+@app.route("/folio/<id>", methods=['PUT', 'GET'])
+def put_folio(id):
   if flask.request.method == 'PUT':
     attrs = flask.request.get_json()
-    update_folio(name, attrs['name'], attrs['prompt'], attrs['query'], json.dumps(attrs['params']))
+    update_folio(id, attrs['name'], attrs['prompt'], attrs['query'], json.dumps(attrs['params']))
     return ('', 204)
   else:
-    return get_folio(name)
+    return get_folio(id)
 
 @app.route("/q", methods=['POST'])
 def run_data_query():

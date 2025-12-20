@@ -1,6 +1,7 @@
 drop table if exists folios;
 create table folios (
-  name varchar(200) not null primary key,
+  id uuid not null primary key,
+  name varchar(200) not null,
   prompt text not null,
   query  text not null,
   params text not null
