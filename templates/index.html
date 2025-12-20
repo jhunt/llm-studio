@@ -88,6 +88,14 @@ main > #studio {
 }
 
 
+h1 input {
+  background-color: inherit;
+  color: inherit;
+  font: inherit;
+  border: 1px solid #333;
+  outline: none;
+  border-width: 0 0 1px 0;
+}
 .query-form,
 .data-preview {
   margin: 0 0 4em 0;
@@ -267,6 +275,7 @@ button.-active {
   </div>
 
   <div id="studio">
+    <h1><input type="text" name="name" value="Interviewing"></h1>
     <div class="query-form">
       <form>
         <label>Database query</label>
@@ -372,8 +381,9 @@ const put = (url, payload) => {
     body: JSON.stringify(payload)
   });
 };
-const updateFolio = obj => {
-  put(`/folio/${obj.name}`, obj);
+const updateFolio = (obj, name) => {
+  if (typeof(name) === 'undefined') { name = obj.name }
+  put(`/folio/${name}`, obj);
 };
 
 let currentFolio = undefined;
@@ -691,11 +701,22 @@ const toggleCSSClassOn = (selector, className) => {
     }
   });
 
+  $('h1 input').addEventListener('change', ev => {
+    console.dir(ev);
+    console.dir(currentFolio);
+    if (currentFolio) {
+      const oldName = currentFolio.name;
+      currentFolio.name = ev.target.value;
+      updateFolio(currentFolio, oldName);
+    }
+  });
+
   $('nav').addEventListener('click', ev => {
     if (ev.target.matches('a')) {
       get(`/folio/${ev.target.innerText}`)
         .then(r => r.json())
         .then(data => {
+          $('h1 input').value = ev.target.innerText;
           $('textarea[name=sql]').value = data.query;
           submitQuery($('.query-form form'))
             .then(d => {

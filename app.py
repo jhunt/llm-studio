@@ -30,16 +30,17 @@ def insert_folio(name, prompt):
       values (?, ?, 'select * from table;', '{}')
     ''', (name, prompt))
 
-def update_folio(name, prompt, query, params):
+def update_folio(name, rename, prompt, query, params):
   with sqlite3.connect('studio.db') as db:
     c = db.cursor()
     c.execute('''
     update folios
-       set prompt = ?,
+       set name = ?,
+           prompt = ?,
            query = ?,
            params = ?
      where name = ?
-    ''', (prompt, query, params, name))
+    ''', (rename, prompt, query, params, name))
 
 app = flask.Flask(__name__)
 
@@ -57,7 +58,7 @@ def post_folios():
 def put_folio(name):
   if flask.request.method == 'PUT':
     attrs = flask.request.get_json()
-    update_folio(attrs['name'], attrs['prompt'], attrs['query'], json.dumps(attrs['params']))
+    update_folio(name, attrs['name'], attrs['prompt'], attrs['query'], json.dumps(attrs['params']))
     return ('', 204)
   else:
     return get_folio(name)
