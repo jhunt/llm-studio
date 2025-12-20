@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>LLM Folio</title>
+<style type="text/css">
+:root {
+  --bg-color: #111;
+  --fg-color-text: #ccc;
+  --fg-color-link: skyblue;
+
+  --fg-color-parameter-fulfilled: lime;
+  --fg-color-parameter-unfulfilled: yellow;
+
+  --border-color-prompt-complete: aqua;
+  --border-color-prompt-incomplete: var(--fg-color-text);
+
+  --font-family-text: sans-serif;
+
+  --sidebar-width: 20vw;
+  --initial-sidebar-width: 20vw;
+
+}
+html, body {
+  background-color: var(--bg-color);
+  color: var(--fg-color-text);
+  font-family: var(--font-family-text);
+  height: 100vh; width: 100vw;
+  margin: 0; padding: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+body a {
+  color: var(--fg-color-link);
+}
+
+
+.-hidden {
+  display: none !important;
+  transition: display 0.4s;
+}
+.-collapsed {
+  margin-bottom: 9pt !important;
+  transition: margin-bottom: 0.8s;
+}
+
+main {
+  width: 100%; height: 100%;
+  margin: 0; padding: 0;
+  display: grid;
+  grid-gap: 0;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 3em;
+}
+
+/* Set inner-pane borders to separate the nav sidebar from the
+   main content pane, and the status bar from the main chrome. */
+main > #status  { border-top:   1px solid #333; }
+main > #sidebar { border-right: 1px solid #333; }
+
+/* Apply uniform padding to the status bar, sidebar, and
+   main content pane. */
+main > #status,
+main > #sidebar nav,
+main > #studio { box-sizing: border-box; padding: 1em; }
+
+main > #sidebar nav { width: var(--initial-sidebar-width); }
+
+main > #status,
+main > #sidebar {
+  position: fixed;
+  background-color: var(--bg-color);
+  overflow: hidden;
+}
+main > #status  {         right: 0; bottom: 0; left: 0; height: 3em;}
+main > #sidebar { top: 0;           bottom: 0; left: 0; width:  var(--sidebar-width);}
+main > #studio {
+  padding-bottom: 4em;
+  margin-left: calc(var(--sidebar-width) + 1em);
+}
+main > #sidebar {
+  transition: width 0.8s;
+}
+main > #studio {
+  transition: margin-left 0.8s;
+}
+
+
+.query-form,
+.data-preview {
+  margin: 0 0 4em 0;
+}
+.query-form label,
+.query-form textarea {
+  display: block;
+}
+.query-form textarea {
+  width: 70%;
+  min-width: 40em;
+  height: 15em;
+  margin: 0 0 4pt 0;
+  background-color: #222;
+  color: var(--fg-color-text);
+}
+.query-form span.error {
+  display: block;
+  color: yellow;
+  padding-bottom: 1em;
+}
+
+.prompt-form form {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-auto-rows: auto;
+  grid-gap: 1em;
+}
+button {
+  cursor: pointer;
+  padding: 8pt 12pt;
+  opacity: 0.4;
+  border-radius: 5pt;
+  border: none;
+  font-size: 12pt;
+  font-weight: bold;
+}
+button.-active {
+  opacity: 1;
+}
+.prompt-form form > div {
+  padding: 0.5em;
+}
+
+.prompt-form .prompt-component {
+  border-left: 4px solid var(--border-color-prompt-incomplete);
+  white-space: pre-line;
+}
+.prompt-form .prompt-component.-complete {
+  border-color: var(--border-color-prompt-complete);
+}
+.prompt-form .prompt-component span.parameter-reference {
+  display: inline-block;
+  padding: 4pt 6pt;
+  border: 1px solid var(--fg-color-text);
+  border-radius: 3pt;
+  font-family: monospace;
+  background-color: #222;
+  color: var(--fg-color-parameter-unfulfilled);
+}
+.prompt-form .prompt-component span.parameter-reference.-fulfilled {
+  color: var(--fg-color-parameter-fulfilled);
+}
+.prompt-form .prompt-component span.parameter-reference.-long {
+  display: block;
+  min-height: 5em;
+  max-width: 40em;
+}
+.prompt-form .prompt-component span.parameter-reference.-long::after {
+  content: '...';
+  color: var(--fg-color-text);
+}
+
+.prompt-form .parameter-definition {
+  display: flex;
+  flex-direction: column;
+}
+.prompt-form .parameter-definition > * {
+  padding: 4pt 0;
+}
+.prompt-form .parameter-definition label.parameter-name {
+  font-family: monospace;
+  color: var(--fg-color-parameter-unfulfilled);
+}
+.prompt-form .parameter-definition.-fulfilled label.parameter-name {
+  color: var(--fg-color-parameter-fulfilled);
+}
+
+
+.data-preview table tbody td {
+  border: 1px solid var(--fg-color-text);
+  min-width: 8em;
+}
+.data-preview table tbody td,
+.data-preview table tbody th {
+  padding: 6pt;
+}
+.data-preview table {
+  border-collapse: collapse;
+}
+.data-preview table th {
+  font-weight: bold;
+}
+.data-preview table td {
+  vertical-align: top;
+  overflow: hidden;
+}
+.data-preview table tbody tr td > div {
+  max-height: calc(4 * 1.15em) ;
+  overflow: hidden;
+}
+
+
+.modal-bg {
+  background-color: rgba(10, 10, 33, 0.9);
+  position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
+  display: none;
+}
+
+.modal-fg {
+  margin: 10vh 30vh;
+  background-color: #111;
+  border: 1px solid #777;
+  padding: 1em;
+}
+.modal-fg > h1 {
+  margin: 0;
+  font-size: 12pt;
+}
+.modal-fg input[type=text] {
+  display: block;
+  font-size: 24pt;
+  background-color: transparent;
+  color: #fff;
+  outline: 0; border: none;
+  border-bottom: 2px solid #eee;
+  width: 60%;
+}
+.modal-fg textarea {
+  background-color: #222;;
+  color: #fff;
+  outline: 0; border: none;
+  width: 60%;
+  height: 60vh;
+  padding: 1em;
+  display: block;
+  margin: 1em 0;
+}
+</style>
+</head>
+<body>
+
+<main>
+  <div id="sidebar">
+    <nav>
+      <ol>
+        {% for folio in folios %}
+        <li><a href="#">{{ folio.name }}</a></li>
+        {% endfor %}
+      </ol>
+      <a class="action" rel="new-folio">New Folio</a>
+    </nav>
+  </div>
+
+  <div id="studio">
+    <div class="query-form">
+      <form>
+        <label>Database query</label>
+        <textarea name="sql" class="query-hidable">select *
+from my_view
+;</textarea>
+        <span class="error -hidden"></span>
+        <button type="submit" class="query-hidable" id="run-sql">Go →</button>
+      </form>
+    </div>
+    <div class="data-preview">
+      <label>Data preview</label>
+      <div class="data-preview-table data-hidable">
+        <table>
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+        <!--p><em>An additional 28 rows not shown.</em></p-->
+      </div>
+    </div>
+    <div class="prompt-form">
+      <label>Your Prompt</label>
+      <form>
+        <div class="activation">
+          <button id="run-llm">Go →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="status">
+    <span class="icons">
+      <a rel="toggle-sidebar" href="#">A</a>
+      <a rel="toggle-query"   href="#">1</a>
+      <a rel="toggle-data"    href="#">2</a>
+    </span>
+    This is a status message...
+  </div>
+</main>
+
+<div id="modal" class="modal-bg">
+  <div class="modal-fg">
+    <div class="modal-new-folio -hidden">
+      <form>
+        <h1>New Folio</h1>
+        <input name="name" type="text" value="Your Folio Title"/>
+        <textarea name="prompt"></textarea>
+        <button type="submit" class="-active">Save Folio</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<template id="parameter-definition-template">
+  <div class="parameter-definition">
+    <div>
+      <label class="parameter-name"></label> should be a <select class="kind">
+        <option></option>
+        <option>literal value</option>
+        <option>database reference</option>
+      </select>
+    </div>
+    <input class="-hidden --for-literal-value" type="text" class="literal-value">
+    <select class="-hidden --for-database-reference">
+      <option></option>
+    </select>
+  </div>
+</template>
+
+<script>
+const fulfillParameter = (name) => {
+  document.querySelectorAll(`[data-parameter-name="${name}"]`).forEach(e => e.classList.add('-fulfilled'));
+};
+const unfulfillParameter = (name) => {
+  document.querySelectorAll(`[data-parameter-name="${name}"]`).forEach(e => e.classList.remove('-fulfilled'));
+};
+
+const maybeFulfillParameter = (name, v) => {
+  if (typeof(v) !== 'undefined' && v != '') {
+    fulfillParameter(name);
+  } else {
+    unfulfillParameter(name);
+  }
+};
+
+const updateFolio = obj => {
+  fetch(`/folio/${obj.name}`, {
+    'method': 'PUT',
+    'headers': {
+      'Content-Type': 'application/json',
+    },
+    'body': JSON.stringify(obj)
+  });
+};
+
+let currentFolio = undefined;
+const checkPrompts = () => {
+  /* first go through parameter definitions */
+  let params = {};
+  document.querySelectorAll('div.parameter-definition').forEach(e => {
+    let kind = e.querySelector('.kind').value;
+    let value = undefined;
+
+    if (kind == 'literal value') {
+      value = e.querySelector('.--for-literal-value').value;
+    } else if (kind == 'database reference') {
+      value = e.querySelector('.--for-database-reference').value;
+    }
+
+    maybeFulfillParameter(e.dataset.parameterName, value);
+    if (kind != '' && typeof(value) !== 'undefined') {
+      params[e.dataset.parameterName] = { kind, value }
+    }
+  });
+
+  /* then go through prompt components */
+  document.querySelectorAll('.prompt-component').forEach(e => {
+    e.classList.toggle('-complete', e.querySelectorAll('.parameter-reference:not(.-fulfilled)').length == 0);
+  });
+
+  /* then (de-)activate the button */
+  document.querySelector('#run-llm').classList.toggle(
+    '-active',
+          document.querySelectorAll('.prompt-component:not(.-complete)').length == 0
+       && document.querySelectorAll('.prompt-component').length > 0);
+
+  /* then send param updates to the API */
+  if (currentFolio) {
+    currentFolio.params = params;
+    updateFolio(currentFolio);
+  }
+};
+
+const parseFolio = (s) => {
+  return s.trim().split(/\n\n+/).map(line => {
+    let buffer = []; /* list of text and references */
+    let token  = { t:'text', v:'' }; /* token  we've assembled so far... */
+    for (let i = 0; i < line.length; i++) {
+      if (token.t == 'text' && line[i] == '[') {
+        if (token.v.trim() != '') {
+          buffer.push(token)
+        }
+        token = { t: 'param', v: '' };
+        continue;
+      }
+
+      if (token.t == 'param' && line[i] == ']') {
+        if (token.v == '') {
+          throw new Error('empty token name ("[]") detected!')
+        }
+        buffer.push(token);
+        token = { t: 'text', v: '' };
+        continue;
+      }
+
+      if (token.t == 'param' && !line[i].match(/[a-zA-Z _#$]/)) {
+        throw new Error(`unexpected character "${line[i]}" found in parameter reference`);
+      }
+
+      token.v += line[i];
+    }
+    if (token.v.trim() != '') {
+      buffer.push(token);
+    }
+    return buffer;
+  })
+};
+
+let knownColumns = [];
+const previewData = (data) => {
+  const thead = document.querySelector('.data-preview-table thead');
+  while (thead.firstChild) { thead.removeChild(thead.firstChild) }
+
+  const tbody = document.querySelector('.data-preview-table tbody');
+  while (tbody.firstChild) { tbody.removeChild(tbody.firstChild) }
+
+  const trh = document.createElement('tr');
+  trh.appendChild(document.createElement('th'));
+  trh.firstChild.innerText = '#';
+
+  columns = [];
+  for (k in data[0]) {
+    const th = document.createElement('th');
+    th.innerText = k;
+    trh.appendChild(th);
+    columns.push(k);
+  }
+  knownColumns = columns;
+  thead.appendChild(trh);
+
+  for (let i = 0; i < data.length; i++) {
+    const tr = document.createElement('tr');
+    tr.appendChild(document.createElement('th'));
+    tr.firstChild.innerText = `${i}`;
+
+    columns.forEach(k => {
+      const td = document.createElement('td')
+      td.innerText = `${data[i][k]}`;
+      tr.appendChild(td)
+    });
+    tbody.append(tr);
+  }
+};
+
+const mountFolio = (folio, params, form) => {
+    if (typeof(form) === 'undefined') {
+      form = document.querySelector('.prompt-form form');
+    }
+    const run = form.querySelector('.activation');
+    while (form.firstChild) { form.removeChild(form.firstChild) }
+
+    /* keep track of the parameters we have already
+       built definition forms for, so we don't
+       double up and sow confusion. */
+    paramsDefined = {};
+
+    folio.forEach(f => {
+      const pc = document.createElement('div');
+      const pd = document.createElement('div');
+      f.forEach(token => {
+        if (token.t == 'text') {
+          pc.appendChild(document.createTextNode(token.v));
+        } else {
+          const ref = document.createElement('span');
+          ref.classList.add('parameter-reference');
+          ref.dataset.parameterName = token.v;
+          ref.appendChild(document.createTextNode(token.v));
+          pc.appendChild(ref);
+
+          if (!(token.v in paramsDefined)) {
+            paramsDefined[token.v] = true;
+            const pd1 = document.querySelector('template#parameter-definition-template').content.cloneNode(true);
+            pd1.querySelector('.parameter-name').innerText = token.v;
+            pd1.querySelector('.parameter-definition').dataset.parameterName = token.v;
+
+            /* populate database columns */
+            const cols = pd1.querySelector('.--for-database-reference');
+            knownColumns.forEach(col => {
+              const opt = document.createElement('option');
+              opt.value = col;
+              opt.innerText = col;
+              cols.appendChild(opt);
+            });
+
+            if (token.v in params) {
+              pd1.querySelector('.kind').value = params[token.v].kind;
+              if (params[token.v].kind == 'literal value') {
+                pd1.querySelector('.--for-literal-value').value = params[token.v].value;
+                pd1.querySelector('.--for-literal-value').classList.remove('-hidden');
+              }
+              if (params[token.v].kind == 'database reference') {
+                pd1.querySelector('.--for-database-reference').value = params[token.v].value;
+                pd1.querySelector('.--for-database-reference').classList.remove('-hidden');
+              }
+            }
+            pd.appendChild(pd1);
+          }
+        }
+      });
+      pc.classList.add('prompt-component');
+      pd.classList.add('prompt-definitions');
+      form.appendChild(pc);
+      form.appendChild(pd);
+    });
+    form.appendChild(run);
+    checkPrompts();
+};
+
+const toggleCSSVar = (name, a, b) => {
+  const root = document.querySelector(':root');
+  const curval = getComputedStyle(root).getPropertyValue(name);
+  root.style.setProperty(name, curval == a ? b : a);
+};
+
+const toggleCSSClassOn = (selector, className) => {
+  document.querySelectorAll(selector).forEach(e => e.classList.toggle(className));
+};
+
+(() => {
+  checkPrompts();
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelector('a[rel=toggle-sidebar]').addEventListener('click', ev => {
+      ev.preventDefault();
+      toggleCSSVar('--sidebar-width', '20vw', '0');
+    });
+
+    document.querySelector('a[rel=toggle-query]').addEventListener('click', ev => {
+      ev.preventDefault();
+      toggleCSSClassOn('.query-hidable', '-hidden');
+      toggleCSSClassOn('.query-form',    '-collapsed');
+    });
+
+    document.querySelector('a[rel=toggle-data]').addEventListener('click', ev => {
+      ev.preventDefault();
+      toggleCSSClassOn('.data-hidable', '-hidden');
+      toggleCSSClassOn('.data-preview', '-collapsed');
+    });
+  });
+
+  document.querySelector('.prompt-form form').addEventListener('change', ev => {
+    /* processes changes to the source disposition of a parameter */
+    if (ev.target.matches('select.kind')) {
+      const pops = ev.target.closest('div.parameter-definition');
+      pops.querySelectorAll('.--for-database-reference, .--for-literal-value').forEach(x => x.classList.add('-hidden'));
+      if (ev.target.value == 'literal value') {
+        pops.querySelectorAll('.--for-literal-value').forEach(x => x.classList.remove('-hidden'));
+      }
+      if (ev.target.value == 'database reference') {
+        pops.querySelectorAll('.--for-database-reference').forEach(x => x.classList.remove('-hidden'));
+      }
+    }
+
+    /* process changes to the source configuration of a parameter */
+    if (ev.target.matches('.--for-literal-value, .--for-database-reference')) {
+      console.log(`checking prompts...`);
+      checkPrompts();
+    }
+  });
+
+  document.querySelectorAll('div.parameter-definition').forEach(e => {
+    e.addEventListener('change', () => checkPrompts());
+  });
+
+  document.querySelector('[rel=new-folio]').addEventListener('click', ev => {
+    ev.preventDefault();
+    document.querySelector('#modal .modal-fg > *').classList.add('-hidden');
+    document.querySelector('#modal .modal-fg > .modal-new-folio').classList.remove('-hidden');
+    document.querySelector('#modal').style.display = 'block';
+  });
+
+  document.querySelector('.modal-new-folio form').addEventListener('submit', ev => {
+    ev.preventDefault();
+    fetch('/folios', {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: ev.target.elements.name.value,
+        prompt: ev.target.elements.prompt.value
+      })
+    });
+    document.location.href = document.location.href;
+  });
+
+  const submitQuery = (form) => {
+    form.querySelector('.error').classList.add('-hidden');
+    return fetch('/q', {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        sql: form.elements.sql.value
+      })
+    }).then(r => r.json())
+      .then(data => {
+        if (data.status == 'ok') {
+          previewData(data.data);
+        } else {
+          const err = form.querySelector('.error');
+          if (data.status == 'error') {
+            err.innerText = `${data.error}: ${data.exception}`;
+          } else {
+            err.innerText = `An unknown error occurred (status was "${data.status}")`;
+          }
+          err.classList.remove('-hidden');
+        }
+        console.log('resolving promise...');
+        return Promise.resolve(data);
+      });
+  };
+
+  document.querySelector('.query-form form').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    submitQuery(ev.target);
+    if (currentFolio) {
+      currentFolio.query = ev.target.value;
+      updateFolio(currentFolio);
+    }
+  });
+  document.querySelector('.query-form form textarea[name=sql]').addEventListener('keydown', (ev) => {
+    if (ev.key == 'Enter' && ev.metaKey) {
+      submitQuery(ev.target.closest('form'));
+      if (currentFolio) {
+        currentFolio.query = ev.target.value;
+        updateFolio(currentFolio);
+      }
+    }
+  });
+
+  document.querySelector('nav').addEventListener('click', ev => {
+    if (ev.target.matches('a')) {
+      fetch(`/folio/${ev.target.innerText}`)
+        .then(r => r.json())
+        .then(data => {
+          document.querySelector('textarea[name=sql]').value = data.query;
+          submitQuery(document.querySelector('.query-form form'))
+            .then(d => {
+              if (d.status == 'ok') {
+                mountFolio(parseFolio(data.prompt), data.params);
+                currentFolio = data;
+                currentFolio.name = ev.target.innerText;
+                console.dir({'current_folio': currentFolio});
+              }
+            });
+        });
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

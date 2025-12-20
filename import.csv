@@ -1,0 +1,13 @@
+name,prompt,query,params
+"Account Summary","Given an account named [ACCOUNT_NAME], with the following notes:
+
+[NOTES]
+
+Write a summary of the account.","select * from accounts","{}"
+"SoW Vetting","Given the text of a scope of work:
+
+[SOW_TEXT]
+
+Are there any problems with this scope of work?
+Remember that it is for client [CLIENT_NAME], on
+the [PROJECT_NAME] project.","select * from scopes","{}"
