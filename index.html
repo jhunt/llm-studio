@@ -34,9 +34,6 @@ body a {
 }
 
 
-.-defer {
-  display: none !important;
-}
 .-hidden {
   display: none !important;
   transition: display 0.4s;
@@ -101,6 +98,8 @@ main > #studio {
   min-width: 40em;
   height: 15em;
   margin: 0 0 4pt 0;
+  background-color: #222;
+  color: var(--fg-color-text);
 }
 
 .prompt-form form {
@@ -190,6 +189,43 @@ button.-active {
 .data-preview table tbody tr td > div {
   max-height: calc(4 * 1.15em) ;
   overflow: hidden;
+}
+
+
+.modal-bg {
+  background-color: rgba(10, 10, 33, 0.9);
+  position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
+}
+
+.modal-fg {
+  margin: 10vh 30vh;
+  background-color: #111;
+  border: 1px solid #777;
+  padding: 1em;
+}
+.modal-fg > h1 {
+  margin: 0;
+  font-size: 12pt;
+}
+.modal-fg input[type=text] {
+  display: block;
+  font-size: 24pt;
+  background-color: transparent;
+  color: #fff;
+  outline: 0; border: none;
+  border-bottom: 2px solid #eee;
+  width: 60%;
+}
+.modal-fg textarea {
+  background-color: #222;;
+  color: #fff;
+  outline: 0; border: none;
+  width: 60%;
+  height: 60vh;
+  padding: 1em;
+  display: block;
+  margin: 1em 0;
 }
 </style>
 </head>
@@ -305,8 +341,8 @@ from my_view
                 <option>database reference</option>
               </select>
             </div>
-            <input class="-defer --for-literal-value" type="text" class="literal-value">
-            <select class="-defer --for-database-reference">
+            <input class="-hidden --for-literal-value" type="text" class="literal-value">
+            <select class="-hidden --for-database-reference">
               <option></option>
               <option>column1</option>
               <option>other_column</option>
@@ -324,8 +360,8 @@ from my_view
                 <option>database reference</option>
               </select>
             </div>
-            <input class="-defer --for-literal-value" type="text" class="literal-value">
-            <select class="-defer --for-database-reference">
+            <input class="-hidden --for-literal-value" type="text" class="literal-value">
+            <select class="-hidden --for-database-reference">
               <option></option>
               <option>column1</option>
               <option>other_column</option>
@@ -353,6 +389,34 @@ from my_view
   </div>
 </main>
 
+<div id="modal" class="modal-bg">
+  <div class="modal-fg">
+    <h1>New Folio</h1>
+    <input type="text" value="Your Folio Title"/>
+    <textarea></textarea>
+    <button id="save-folio" class="-active">Save Folio</button>
+  </div>
+</div>
+
+<template id="parameter-definition-template">
+  <div class="parameter-definition">
+    <div>
+      <label class="parameter-name"></label> should be a <select class="kind">
+        <option></option>
+        <option>literal value</option>
+        <option>database reference</option>
+      </select>
+    </div>
+    <input class="-hidden --for-literal-value" type="text" class="literal-value">
+    <select class="-hidden --for-database-reference">
+      <option></option>
+      <option>column1</option> <!-- FIXME -->
+      <option>other_column</option>
+      <option>history_notes</option>
+    </select>
+  </div>
+</template>
+
 <script>
 const fulfillParameter = (name) => {
   document.querySelectorAll(`[data-parameter-name="${name}"]`).forEach(e => e.classList.add('-fulfilled'));
@@ -372,7 +436,6 @@ const maybeFulfillParameter = (name, v) => {
 const checkPrompts = () => {
   /* first go through parameter definitions */
   document.querySelectorAll('div.parameter-definition').forEach(e => {
-    console.log(e);
     let kind = e.querySelector('.kind').value;
     let value = undefined;
 
@@ -395,6 +458,85 @@ const checkPrompts = () => {
     '-active',
           document.querySelectorAll('.prompt-component:not(.-complete)').length == 0
        && document.querySelectorAll('.prompt-component').length > 0);
+};
+
+const parseFolio = (s) => {
+  return s.split(/\n\n+/).map(line => {
+    let buffer = []; /* list of text and references */
+    let token  = { t:'text', v:'' }; /* token  we've assembled so far... */
+    for (let i = 0; i < line.length; i++) {
+      if (token.t == 'text' && line[i] == '[') {
+        if (token.v != '') {
+          buffer.push(token)
+        }
+        token = { t: 'param', v: '' };
+        continue;
+      }
+
+      if (token.t == 'param' && line[i] == ']') {
+        if (token.v == '') {
+          throw new Error('empty token name ("[]") detected!')
+        }
+        buffer.push(token);
+        token = { t: 'text', v: '' };
+        continue;
+      }
+
+      if (token.t == 'param' && !line[i].match(/[a-zA-Z _#$]/)) {
+        throw new Error(`unexpected character "${line[i]}" found in parameter reference`);
+      }
+
+      token.v += line[i];
+    }
+    if (token.v != '') {
+      buffer.push(token);
+    }
+    return buffer;
+  })
+};
+
+const mountFolio = (folio, params, form) => {
+    const run = form.querySelector('.activation');
+    while (form.firstChild) { form.removeChild(form.firstChild) }
+
+    folio.forEach(f => {
+      const pc = document.createElement('div');
+      const pd = document.createElement('div');
+      f.forEach(token => {
+        if (token.t == 'text') {
+          pc.appendChild(document.createTextNode(token.v));
+        } else {
+          const ref = document.createElement('span');
+          ref.classList.add('parameter-reference');
+          ref.dataset.parameterName = token.v;
+          ref.appendChild(document.createTextNode(token.v));
+          pc.appendChild(ref);
+
+          const pd1 = document.querySelector('template#parameter-definition-template').content.cloneNode(true);
+          pd1.querySelector('.parameter-name').innerText = token.v;
+          pd1.querySelector('.parameter-definition').dataset.parameterName = token.v;
+
+          if (token.v in params) {
+            pd1.querySelector('.kind').value = params[token.v].source;
+            if (params[token.v].source == 'literal value') {
+              pd1.querySelector('.--for-literal-value').value = params[token.v].literal;
+              pd1.querySelector('.--for-literal-value').classList.remove('-hidden');
+            }
+            if (params[token.v].source == 'database reference') {
+              pd1.querySelector('.--for-database-reference').value = params[token.v].database;
+              pd1.querySelector('.--for-database-reference').classList.remove('-hidden');
+            }
+          }
+          pd.appendChild(pd1);
+        }
+      });
+      pc.classList.add('prompt-component');
+      pd.classList.add('prompt-definitions');
+      form.appendChild(pc);
+      form.appendChild(pd);
+    });
+    form.appendChild(run);
+    checkPrompts();
 };
 
 const toggleCSSVar = (name, a, b) => {
@@ -429,12 +571,9 @@ const toggleCSSClassOn = (selector, className) => {
     });
   });
 
-  document.querySelectorAll('div.parameter-definition .-defer').forEach(e => {
-    e.classList.add('-hidden');
-    e.classList.remove('-defer');
-  });
-  document.querySelectorAll('div.parameter-definition select.kind').forEach(e => {
-    e.addEventListener('change', ev => {
+  document.querySelector('.prompt-form form').addEventListener('change', ev => {
+    /* processes changes to the source disposition of a parameter */
+    if (ev.target.matches('select.kind')) {
       const pops = ev.target.closest('div.parameter-definition');
       pops.querySelectorAll('.--for-database-reference, .--for-literal-value').forEach(x => x.classList.add('-hidden'));
       if (ev.target.value == 'literal value') {
@@ -443,25 +582,34 @@ const toggleCSSClassOn = (selector, className) => {
       if (ev.target.value == 'database reference') {
         pops.querySelectorAll('.--for-database-reference').forEach(x => x.classList.remove('-hidden'));
       }
-    });
+    }
+
+    /* process changes to the source configuration of a parameter */
+    if (ev.target.matches('.--for-literal-value, .--for-database-reference')) {
+      checkPrompts();
+    }
   });
 
   document.querySelectorAll('div.parameter-definition').forEach(e => {
-    e.addEventListener('change', () => {
-      /*
-      console.log(`ev change fired for ${e.dataset.parameterName}`);
-      let v = undefined;
+    e.addEventListener('change', () => checkPrompts());
+  });
 
-      if (e.querySelector('.kind').value == 'literal value') {
-        v = e.querySelector('.--for-literal-value').value;
-      } else if (e.querySelector('.kind').value == 'database reference') {
-        v = e.querySelector('.--for-database-reference').value;
+  document.querySelector('button#save-folio').addEventListener('click', ev => {
+    ev.preventDefault();
+    folio = parseFolio(ev.target.closest('div').querySelector('textarea').value);
+    document.querySelector('#modal').style.display = 'none';
+
+    const form = document.querySelector('.prompt-form form');
+    mountFolio(folio, {
+      ACCOUNT_NAME: {
+        source: 'literal value',
+        literal: 'The Account Name'
+      },
+      HISTORY: {
+        source: 'database reference',
+        database: 'column1'
       }
-
-      maybeFulfillParameter(e.dataset.parameterName, v);
-      */
-      checkPrompts();
-    });
+    }, form);
   });
 
 })();
