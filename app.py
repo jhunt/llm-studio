@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import flask
+import uuid
 
 def run_meta_query(sql):
   with sqlite3.connect('studio.db') as db:
@@ -23,7 +24,7 @@ def get_folio(id):
     return v
 
 def insert_folio(name, prompt):
-  id = uuid4()
+  id = str(uuid.uuid4())
   with sqlite3.connect('studio.db') as db:
     c = db.cursor()
     c.execute('''
