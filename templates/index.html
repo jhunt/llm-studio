@@ -462,7 +462,6 @@ Folio.prototype.set = function (attrs) {
 };
 
 Folio.prototype.save = function () {
-  console.dir(this);
   this.parsed = this.parse();
 
   if (typeof(this.id) === 'undefined') {
@@ -548,6 +547,12 @@ Folio.prototype.mount = function (mountpoint) {
   }
   $('h1 input').value = this.name;
   $('textarea[name=sql]').value = this.query;
+}
+
+Folio.prototype.redraw = function (mountpoint) {
+  if (typeof(mountpoint) === 'undefined') {
+    mountpoint = $('.prompt-form form');
+  }
 
   const run = mountpoint.querySelector('.activation');
   while (mountpoint.firstChild) { mountpoint.removeChild(mountpoint.firstChild) }
@@ -715,7 +720,7 @@ const redraw = () => {
     previewData($the.data);
   }
   if ($the.folio) {
-    $the.folio.mount();
+    $the.folio.redraw();
   }
 };
 
@@ -730,8 +735,6 @@ const toggleCSSClassOn = (selector, className) => {
 };
 
 (() => {
-  checkPrompts();
-
   document.addEventListener('DOMContentLoaded', () => {
     $('a[rel=toggle-sidebar]').addEventListener('click', ev => {
       ev.preventDefault();
@@ -771,7 +774,9 @@ const toggleCSSClassOn = (selector, className) => {
   });
 
   $$('div.parameter-definition').forEach(e => {
-    e.addEventListener('change', () => checkPrompts());
+    e.addEventListener('change', () => {
+      checkPrompts();
+    });
   });
 
   $('[rel=new-folio]').addEventListener('click', ev => {
@@ -807,7 +812,6 @@ const toggleCSSClassOn = (selector, className) => {
       .then(data => {
         if (data.status == 'ok') {
           $the.data = data.data;
-          redraw()
         } else {
           const err = form.querySelector('.error');
           if (data.status == 'error') {
@@ -826,7 +830,7 @@ const toggleCSSClassOn = (selector, className) => {
     if (q.trim() == '') {
       console.log('not submitting empty sql query...');
     } else {
-      submitQuery(form);
+      submitQuery(form).then(redraw);
     }
     if ($the.folio) {
       $the.folio.set({ query: q });
@@ -857,21 +861,14 @@ const toggleCSSClassOn = (selector, className) => {
         .then(data => {
           $the.folio = new Folio(data);
           $the.folio.mount();
-          submitQuery($('.query-form form'))
-            .then(d => {
-              if (d.status == 'ok') {
-                redraw();
-              }
-            });
+
+          handler_submitQuery($('.query-form form'));
         });
     }
   });
 
   $('#run-llm').addEventListener('click', ev => {
     if (ev.target.matches('#run-llm.-active')) {
-      console.dir($the.folio);
-      console.dir($the.data);
-
       if ($the.data) {
         const out = $('.rendered-prompts');
         while (out.firstChild) { out.removeChild(out.firstChild); }
@@ -888,7 +885,7 @@ const toggleCSSClassOn = (selector, className) => {
           out.appendChild(document.createElement('hr'));
           const para = document.createElement('div');
           para.classList.add('para');
-          para.innerText = $the.folio.prompt.replace(/\[(.*?)\]/g, (m, name) => { console.dir(name); return rplca[name] });
+          para.innerText = $the.folio.prompt.replace(/\[(.*?)\]/g, (m, name) => rplca[name]);
           out.appendChild(para);
           const resp = document.createElement('div');
           resp.classList.add('resp');
@@ -897,7 +894,7 @@ const toggleCSSClassOn = (selector, className) => {
             .then(r => r.json())
             .then(r => {
               if (r.status == 'ok') {
-                resp.innerText = r.response;
+                resp.innerHTML = r.response.html;
               } else {
                 resp.innerText = `${r.error}: ${r.exception}`;
               }});

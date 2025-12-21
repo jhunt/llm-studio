@@ -3,6 +3,7 @@ import json
 import flask
 import uuid
 import ollama
+import markdown_it
 
 def run_meta_query(sql):
   with sqlite3.connect('studio.db') as db:
@@ -45,6 +46,13 @@ def update_folio(id, name, prompt, query, params):
            params = ?
      where id = ?
     ''', (name, prompt, query, params, id))
+
+def insert_response(prompt, response):
+  with sqlite3.connect('studio.db') as db:
+    c = db.cursor()
+    c.execute('''
+    insert into responses (prompt, response) values (?, ?)
+    ''', (prompt, response))
 
 def gen_ai(model, prompt):
   r = ollama.chat(
@@ -97,9 +105,15 @@ def run_data_query():
 def run_gen_ai():
   attrs = flask.request.get_json()
   try:
+    r = gen_ai('llama3.2', attrs['prompt'])
+    insert_response(attrs['prompt'], r)
+    md = markdown_it.MarkdownIt()
     return {
       'status': 'ok',
-      'response': gen_ai('llama3.2', attrs['prompt']),
+      'response': {
+        'md': r,
+        'html': md.render(r),
+      }
     }
   except Exception as e:
     return {

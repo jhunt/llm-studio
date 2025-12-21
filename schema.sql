@@ -7,6 +7,13 @@ create table folios (
   params text not null
 );
 
+drop table if exists responses;
+create table responses (
+  prompt text not null,
+  response text not null,
+  generated_at datetime not null default current_timestamp
+);
+
 drop table if exists the_accounts;
 create table the_accounts (
   id uuid not null primary key,
