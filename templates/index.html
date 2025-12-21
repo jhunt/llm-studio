@@ -633,9 +633,7 @@ Folio.prototype.redraw = function (mountpoint) {
       ev.preventDefault();
       $$('.prompt-component, .prompt-definitions').forEach(e => e.classList.add('-dim'));
       pc.classList.remove('-dim');
-      while (pc.firstChild) {
-        pc.removeChild(pc.firstChild);
-      }
+      pc.textContent = '';
       const ta = document.createElement('textarea');
       ta.value = f.src;
       while (ta.value.split(/\n/).length < 5) {
@@ -702,10 +700,10 @@ const checkPrompts = () => {
 
 const previewData = (data) => {
   const thead = $('.data-preview-table thead');
-  while (thead.firstChild) { thead.removeChild(thead.firstChild) }
+  thead.textContent = '';
 
   const tbody = $('.data-preview-table tbody');
-  while (tbody.firstChild) { tbody.removeChild(tbody.firstChild) }
+  tbody.textContent = '';
 
   const trh = document.createElement('tr');
   trh.appendChild(document.createElement('th'));
@@ -891,7 +889,7 @@ const toggleCSSClassOn = (selector, className) => {
     if (ev.target.matches('#run-llm.-active')) {
       if ($the.data) {
         const out = $('.rendered-prompts');
-        while (out.firstChild) { out.removeChild(out.firstChild); }
+        out.textContent = '';
         for (let data of $the.data) {
           let rplca = {};
           for (let k in $the.folio.params) {
