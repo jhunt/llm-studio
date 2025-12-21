@@ -890,6 +890,18 @@ const toggleCSSClassOn = (selector, className) => {
           para.classList.add('para');
           para.innerText = $the.folio.prompt.replace(/\[(.*?)\]/g, (m, name) => { console.dir(name); return rplca[name] });
           out.appendChild(para);
+          const resp = document.createElement('div');
+          resp.classList.add('resp');
+          resp.innerText = 'Thinking...';
+          post('/ai', { 'prompt': para.innerText })
+            .then(r => r.json())
+            .then(r => {
+              if (r.status == 'ok') {
+                resp.innerText = r.response;
+              } else {
+                resp.innerText = `${r.error}: ${r.exception}`;
+              }});
+          out.appendChild(resp);
         }
       }
     }

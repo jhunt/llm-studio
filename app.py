@@ -2,6 +2,7 @@ import sqlite3
 import json
 import flask
 import uuid
+import ollama
 
 def run_meta_query(sql):
   with sqlite3.connect('studio.db') as db:
@@ -45,6 +46,17 @@ def update_folio(id, name, prompt, query, params):
      where id = ?
     ''', (name, prompt, query, params, id))
 
+def gen_ai(model, prompt):
+  r = ollama.chat(
+    model=model,
+    messages=[
+      {
+        'role': 'user',
+        'content': prompt
+      }
+    ])
+  return r.message.content
+
 app = flask.Flask(__name__)
 
 @app.route("/")
@@ -78,5 +90,20 @@ def run_data_query():
     return {
       'status': 'error',
       'error': 'There was a problem with your SQL query',
+      'exception': str(e)
+    }
+
+@app.route("/ai", methods=['POST'])
+def run_gen_ai():
+  attrs = flask.request.get_json()
+  try:
+    return {
+      'status': 'ok',
+      'response': gen_ai('llama3.2', attrs['prompt']),
+    }
+  except Exception as e:
+    return {
+      'status': 'error',
+      'error': 'The bot acted up',
       'exception': str(e)
     }
