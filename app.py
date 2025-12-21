@@ -74,6 +74,7 @@ def insert_response(prompt, response):
     ''', (prompt, response))
 
 def gen_ai(model, prompt):
+  #return '(bot is snoozing)'
   r = ollama.chat(
     model=model,
     messages=[
