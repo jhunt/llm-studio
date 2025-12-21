@@ -54,7 +54,7 @@ def update_folio(id, name, prompt, query, params):
      where id = ?
     ''', (name, prompt, query, params, id))
 
-def get_response(prompt):
+def get_response(folio_id, data_id, prompt):
   with sqlite3.connect('studio.db') as db:
     db.row_factory = sqlite3.Row
     c = db.cursor()
@@ -62,16 +62,19 @@ def get_response(prompt):
     select response,
            generated_at
       from responses
-     where prompt = ?
-    ''', (prompt,))
+     where folio_id = ?
+       and data_id = ?
+       and prompt = ?
+    ''', (folio_id, data_id, prompt))
     return first(c)
 
-def insert_response(prompt, response):
+def insert_response(folio_id, data_id, prompt, response):
   with sqlite3.connect('studio.db') as db:
     c = db.cursor()
     c.execute('''
-    insert into responses (prompt, response) values (?, ?)
-    ''', (prompt, response))
+    insert into responses (folio_id, data_id, prompt, response)
+    values (?, ?, ?, ?)
+    ''', (folio_id, data_id, prompt, response))
 
 def gen_ai(model, prompt):
   #return '(bot is snoozing)'
@@ -125,12 +128,12 @@ def run_data_query():
 def run_gen_ai():
   attrs = flask.request.get_json()
   try:
-    prev = get_response(attrs['prompt'])
+    prev = get_response(attrs['folio_id'], attrs['data_id'], attrs['prompt'])
     if prev is not None:
       r = prev['response']
     else:
       r = gen_ai('llama3.2', attrs['prompt'])
-      insert_response(attrs['prompt'], r)
+      insert_response(attrs['folio_id'], attrs['data_id'], attrs['prompt'], r)
     md = markdown_it.MarkdownIt()
     return {
       'status': 'ok',

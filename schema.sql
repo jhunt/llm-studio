@@ -9,6 +9,8 @@ create table folios (
 
 drop table if exists responses;
 create table responses (
+  folio_id uuid not null,
+  data_id text not null,
   prompt text not null,
   response text not null,
   generated_at datetime not null default current_timestamp

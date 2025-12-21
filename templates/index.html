@@ -916,8 +916,11 @@ const toggleCSSClassOn = (selector, className) => {
           const resp = document.createElement('div');
           resp.classList.add('resp');
           resp.innerText = 'Thinking...';
-          post('/ai', { 'prompt': para.innerText })
-            .then(r => r.json())
+          post('/ai', {
+            'folio_id': $the.folio.id,
+            'data_id': data['id'] || '',
+            'prompt': para.innerText
+          }).then(r => r.json())
             .then(r => {
               if (r.status == 'ok') {
                 resp.innerHTML = r.response.html;
