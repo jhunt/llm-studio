@@ -4,7 +4,8 @@ create table folios (
   name varchar(200) not null,
   prompt text not null,
   query  text not null,
-  params text not null
+  params text not null,
+  deleted_yn char(1) not null default 'N'
 );
 
 drop table if exists responses;

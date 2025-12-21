@@ -126,6 +126,11 @@ main > #studio {
   text-align: center;
 }
 
+#studio { position: relative; }
+#studio .actions {
+  position: absolute;
+  top: 4pt; right: 4pt;
+}
 h1 input {
   background-color: inherit;
   color: inherit;
@@ -334,13 +339,21 @@ button.-active {
   </div>
 
   <div id="studio">
+    <div class="welcome-screen">
+      <h1>Welcome!</h1>
+      <p>To get started, choose a folio from the sidebar, or create a new one!</p>
+    </div>
+    <div class="folio-editor -hidden">
     <h1><input type="text" name="name" value="Interviewing"></h1>
+    <div class="actions">
+      <a href="#" rel="delete-folio" tabindex="-1">delete</a>
+    </div>
     <div class="query-form">
       <form>
         <label>Database query</label>
         <textarea name="sql" class="query-hidable"></textarea>
         <span class="error -hidden"></span>
-        <button type="submit" class="query-hidable">Go →</button>
+        <button type="submit" class="query-hidable -active">Go →</button>
       </form>
     </div>
     <div class="data-preview">
@@ -362,13 +375,14 @@ button.-active {
       </form>
       <div class="rendered-prompts"></div>
     </div>
+    </div>
   </div>
 
   <div id="status">
     <span class="icons">
-      <a rel="toggle-sidebar" href="#">A</a>
-      <a rel="toggle-query"   href="#">1</a>
-      <a rel="toggle-data"    href="#">2</a>
+      <a tabindex="-1" rel="toggle-sidebar" href="#">A</a>
+      <a tabindex="-1" rel="toggle-query"   href="#">1</a>
+      <a tabindex="-1" rel="toggle-data"    href="#">2</a>
     </span>
     <span class="message">
     </span>
@@ -562,6 +576,9 @@ Folio.prototype.parse = function () {
 };
 
 Folio.prototype.mount = function (mountpoint) {
+  $('#studio .welcome-screen').classList.add('-hidden');
+  $('#studio .folio-editor').classList.remove('-hidden');
+
   if (typeof(mountpoint) === 'undefined') {
     mountpoint = $('.prompt-form form');
   }
@@ -740,6 +757,29 @@ const previewData = (data) => {
   }
 };
 
+const refresh_folios = () => {
+  fetch('/folios')
+    .then(r => r.json())
+    .then(l => {
+      const cur = $('nav ol li.-current a');
+      const id = cur ? cur.dataset.folioId : null;
+
+      $('nav ol').textContent = '';
+      for (folio of l.folios) {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.setAttribute('href', '#');
+        a.dataset.folioId = folio.id;
+        a.innerText = folio.name;
+        li.appendChild(a);
+        if (id == folio.id) {
+          li.classList.add('-current');
+        }
+        $('nav ol').appendChild(li);
+      }
+    });
+};
+
 const redraw = () => {
   if ($the.data) {
     previewData($the.data);
@@ -817,6 +857,7 @@ const toggleCSSClassOn = (selector, className) => {
       prompt: 'Tell me a funny story about [DB_TYPE] databases.',
     });
     $the.folio.mount();
+    refresh_folios();
   });
 
   /*
@@ -873,8 +914,18 @@ const toggleCSSClassOn = (selector, className) => {
 
   $('h1 input').addEventListener('change', ev => {
     if ($the.folio) {
-      $the.folio.set({ name: ev.target.value });
+      $the.folio.set({ name: ev.target.value })
+        .then(refresh_folios);
     }
+  });
+  $('a[rel="delete-folio"]').addEventListener('click', ev => {
+    ev.preventDefault();
+    fetch(`/folio/${$the.folio.id}`, { method: 'DELETE' })
+      .then(_ => {
+        refresh_folios();
+        $('#studio .welcome-screen').classList.remove('-hidden');
+        $('#studio .folio-editor').classList.add('-hidden');
+      });
   });
 
   $('nav').addEventListener('click', ev => {

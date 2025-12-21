@@ -18,6 +18,26 @@ def first(c):
     return None
   return dict(v)
 
+def get_folios():
+  with sqlite3.connect('studio.db') as db:
+    db.row_factory = sqlite3.Row
+    c = db.cursor()
+    c.execute('''
+    select id,
+           name,
+           query,
+           prompt,
+           params
+      from folios
+     where deleted_yn != 'Y'
+    ''')
+    l = []
+    for r in c.fetchall():
+      v = dict(r)
+      v['params'] = json.loads(v['params'])
+      l.append(v)
+    return l
+
 def get_folio(id):
   with sqlite3.connect('studio.db') as db:
     db.row_factory = sqlite3.Row
@@ -26,6 +46,7 @@ def get_folio(id):
     select id, name, prompt, query, params
       from folios
      where id = ?
+       and deleted_yn != 'Y'
     ''', (id,))
     v = first(c)
     if v is not None:
@@ -52,7 +73,17 @@ def update_folio(id, name, prompt, query, params):
            query = ?,
            params = ?
      where id = ?
+       and deleted_yn != 'Y'
     ''', (name, prompt, query, params, id))
+
+def archive_folio(id):
+  with sqlite3.connect('studio.db') as db:
+    c = db.cursor()
+    c.execute('''
+    update folios
+       set deleted_yn = 'Y'
+     where id = ?
+    ''', (id,))
 
 def get_response(folio_id, data_id, prompt):
   with sqlite3.connect('studio.db') as db:
@@ -92,22 +123,31 @@ app = flask.Flask(__name__)
 
 @app.route("/")
 def index():
-  return flask.render_template('index.html', folios = run_meta_query('select * from folios'))
+  return flask.render_template('index.html', folios = get_folios())
 
-@app.route("/folios", methods=['POST'])
+@app.route("/folios", methods=['POST', 'GET'])
 def post_folios():
-  attrs = flask.request.get_json()
-  id = insert_folio(attrs['name'], attrs['prompt'])
-  return { 'id': id }
+  if flask.request.method == 'POST':
+    attrs = flask.request.get_json()
+    return { 'id': insert_folio(attrs['name'], attrs['prompt']) }
+  elif flask.request.method == 'GET':
+    return { 'folios': get_folios() }
+  else:
+    return '', 405
 
-@app.route("/folio/<id>", methods=['PUT', 'GET'])
+@app.route("/folio/<id>", methods=['PUT', 'GET', 'DELETE'])
 def put_folio(id):
   if flask.request.method == 'PUT':
     attrs = flask.request.get_json()
     update_folio(id, attrs['name'], attrs['prompt'], attrs['query'], json.dumps(attrs['params']))
     return ('', 204)
-  else:
+  elif flask.request.method == 'GET':
     return get_folio(id)
+  elif flask.request.method == 'DELETE':
+    archive_folio(id)
+    return ('', 200)
+  else:
+    return ('', 405)
 
 @app.route("/q", methods=['POST'])
 def run_data_query():
