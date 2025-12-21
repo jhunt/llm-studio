@@ -106,11 +106,18 @@ main > #studio {
 }
 #sidebar nav ol li {
   border-bottom: 1px solid #333;
-  padding: 0.5em 1em;
 }
 #sidebar nav ol li a {
+  display: block;
+  padding: 0.5em 1em;
   text-decoration: none;
   color: inherit;
+}
+#sidebar nav ol li:hover {
+  background-color: #112;
+}
+#sidebar nav ol li.-current {
+  background-color: #113;
 }
 #sidebar nav > a {
   display: block;
@@ -872,6 +879,8 @@ const toggleCSSClassOn = (selector, className) => {
 
   $('nav').addEventListener('click', ev => {
     if (ev.target.matches('a[data-folio-id]')) {
+      $$('nav li.-current').forEach(e => e.classList.remove('-current'));
+      ev.target.closest('li').classList.add('-current');
       const id = ev.target.dataset.folioId;
       notify(`retrieving folio ${id}...`, 1);
       get(`/folio/${id}`)
