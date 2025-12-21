@@ -12,6 +12,12 @@ def run_meta_query(sql):
     c.execute(sql)
     return [dict(x) for x in c.fetchall()]
 
+def first(c):
+  v = c.fetchone()
+  if v is None:
+    return None
+  return dict(v)
+
 def get_folio(id):
   with sqlite3.connect('studio.db') as db:
     db.row_factory = sqlite3.Row
@@ -21,8 +27,9 @@ def get_folio(id):
       from folios
      where id = ?
     ''', (id,))
-    v = dict(c.fetchone())
-    v['params'] = json.loads(v['params'])
+    v = first(c)
+    if v is not None:
+      v['params'] = json.loads(v['params'])
     return v
 
 def insert_folio(name, prompt):
@@ -46,6 +53,18 @@ def update_folio(id, name, prompt, query, params):
            params = ?
      where id = ?
     ''', (name, prompt, query, params, id))
+
+def get_response(prompt):
+  with sqlite3.connect('studio.db') as db:
+    db.row_factory = sqlite3.Row
+    c = db.cursor()
+    c.execute('''
+    select response,
+           generated_at
+      from responses
+     where prompt = ?
+    ''', (prompt,))
+    return first(c)
 
 def insert_response(prompt, response):
   with sqlite3.connect('studio.db') as db:
@@ -105,15 +124,20 @@ def run_data_query():
 def run_gen_ai():
   attrs = flask.request.get_json()
   try:
-    r = gen_ai('llama3.2', attrs['prompt'])
-    insert_response(attrs['prompt'], r)
+    prev = get_response(attrs['prompt'])
+    if prev is not None:
+      r = prev['response']
+    else:
+      r = gen_ai('llama3.2', attrs['prompt'])
+      insert_response(attrs['prompt'], r)
     md = markdown_it.MarkdownIt()
     return {
       'status': 'ok',
       'response': {
         'md': r,
         'html': md.render(r),
-      }
+      },
+      'cached_at': prev['generated_at'] if prev is not None else None,
     }
   except Exception as e:
     return {

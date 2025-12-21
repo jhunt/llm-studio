@@ -252,6 +252,25 @@ button.-active {
   overflow: hidden;
 }
 
+.rendered-prompts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 3em;
+}
+.rendered-prompts > * {
+  padding: 1em 3em 6em 1em;
+  border-top: 0.5px solid #333;
+}
+.rendered-prompts .resp > :first-child {
+  margin-top: 0;
+}
+.rendered-prompts .resp .cached-at {
+  margin-top: 1em;
+  float: right;
+  opacity: 0.2;
+}
+.rendered-prompts .resp .cached-at:hover { opacity: 1; }
+
 
 /*
 .modal-bg {
@@ -547,6 +566,7 @@ Folio.prototype.mount = function (mountpoint) {
   }
   $('h1 input').value = this.name;
   $('textarea[name=sql]').value = this.query;
+  $('.rendered-prompts').textContent = '';
 }
 
 Folio.prototype.redraw = function (mountpoint) {
@@ -882,7 +902,6 @@ const toggleCSSClassOn = (selector, className) => {
               rplca[k] = p.value;
             }
           }
-          out.appendChild(document.createElement('hr'));
           const para = document.createElement('div');
           para.classList.add('para');
           para.innerText = $the.folio.prompt.replace(/\[(.*?)\]/g, (m, name) => rplca[name]);
@@ -895,6 +914,12 @@ const toggleCSSClassOn = (selector, className) => {
             .then(r => {
               if (r.status == 'ok') {
                 resp.innerHTML = r.response.html;
+                if (r.cached_at) {
+                  const cache = document.createElement('span');
+                  cache.classList.add('cached-at');
+                  cache.innerText = `cached at ${r.cached_at}`;
+                  resp.appendChild(cache);
+                }
               } else {
                 resp.innerText = `${r.error}: ${r.exception}`;
               }});
