@@ -3,3 +3,6 @@ streamlit
 watchdog
 flask
 markdown-it-py
+
+isort
+black
