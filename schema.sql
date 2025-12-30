@@ -17,13 +17,7 @@ create table responses (
   generated_at datetime not null default current_timestamp
 );
 
-drop table if exists the_accounts;
-create table the_accounts (
-  id uuid not null primary key,
-  name text,
-  notes text
 );
 
-.mode csv
-.import import.csv folios -skip 1
-.import accounts.csv the_accounts -skip 1
+--.mode csv
+--.import import.csv folios -skip 1

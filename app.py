@@ -2,6 +2,7 @@ import json
 import sqlite3
 import uuid
 
+import duckdb
 import flask
 import markdown_it
 import ollama
@@ -14,6 +15,9 @@ def run_meta_query(sql):
         c.execute(sql)
         return [dict(x) for x in c.fetchall()]
 
+def run_data_query(sql):
+    c = duckdb.connect()
+    return c.sql(sql).df().to_dict(orient='records')
 
 def first(c):
     v = c.fetchone()
@@ -185,12 +189,12 @@ def put_folio(id):
 
 
 @app.route("/q", methods=["POST"])
-def run_data_query():
+def run_q():
     attrs = flask.request.get_json()
     try:
         return {
             "status": "ok",
-            "data": run_meta_query(attrs["sql"]),
+            "data": run_data_query(attrs["sql"]),
         }
     except Exception as e:
         return {
