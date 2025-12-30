@@ -1,9 +1,11 @@
-import sqlite3
 import json
-import flask
+import sqlite3
 import uuid
-import ollama
+
+import flask
 import markdown_it
+import ollama
+
 
 def run_meta_query(sql):
   with sqlite3.connect('studio.db') as db:
