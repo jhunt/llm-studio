@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import sqlite3
 import uuid
@@ -8,9 +9,13 @@ import flask
 import markdown_it
 import ollama
 
+LLM_STUDIO_DB = os.getenv("LLM_STUDIO_DB", "studio.db")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+
 
 def run_meta_query(sql):
-    with sqlite3.connect("studio.db") as db:
+    with sqlite3.connect(LLM_STUDIO_DB) as db:
         db.row_factory = sqlite3.Row
         c = db.cursor()
         c.execute(sql)
@@ -30,7 +35,7 @@ def first(c):
 
 
 def get_folios():
-    with sqlite3.connect("studio.db") as db:
+    with sqlite3.connect(LLM_STUDIO_DB) as db:
         db.row_factory = sqlite3.Row
         c = db.cursor()
         c.execute(
@@ -53,7 +58,7 @@ def get_folios():
 
 
 def get_folio(id):
-    with sqlite3.connect("studio.db") as db:
+    with sqlite3.connect(LLM_STUDIO_DB) as db:
         db.row_factory = sqlite3.Row
         c = db.cursor()
         c.execute(
@@ -73,7 +78,7 @@ def get_folio(id):
 
 def insert_folio(name, prompt):
     id = str(uuid.uuid4())
-    with sqlite3.connect("studio.db") as db:
+    with sqlite3.connect(LLM_STUDIO_DB) as db:
         c = db.cursor()
         c.execute(
             """
@@ -86,7 +91,7 @@ def insert_folio(name, prompt):
 
 
 def update_folio(id, name, prompt, query, params):
-    with sqlite3.connect("studio.db") as db:
+    with sqlite3.connect(LLM_STUDIO_DB) as db:
         c = db.cursor()
         c.execute(
             """
@@ -103,7 +108,7 @@ def update_folio(id, name, prompt, query, params):
 
 
 def archive_folio(id):
-    with sqlite3.connect("studio.db") as db:
+    with sqlite3.connect(LLM_STUDIO_DB) as db:
         c = db.cursor()
         c.execute(
             """
@@ -116,7 +121,7 @@ def archive_folio(id):
 
 
 def get_response(folio_id, data_id, prompt):
-    with sqlite3.connect("studio.db") as db:
+    with sqlite3.connect(LLM_STUDIO_DB) as db:
         db.row_factory = sqlite3.Row
         c = db.cursor()
         c.execute(
@@ -134,7 +139,7 @@ def get_response(folio_id, data_id, prompt):
 
 
 def insert_response(folio_id, data_id, prompt, response):
-    with sqlite3.connect("studio.db") as db:
+    with sqlite3.connect(LLM_STUDIO_DB) as db:
         c = db.cursor()
         c.execute(
             """
@@ -146,8 +151,8 @@ def insert_response(folio_id, data_id, prompt, response):
 
 
 def gen_ai(model, prompt, params):
-    # return '(bot is snoozing)'
-    r = ollama.chat(
+    c = ollama.Client(host=OLLAMA_HOST)
+    r = c.chat(
         model=model, messages=[{"role": "user", "content": prompt}], options=params
     )
     return r.message.content
@@ -159,6 +164,17 @@ app = flask.Flask(__name__)
 @app.route("/")
 def index():
     return flask.render_template("index.html", folios=get_folios())
+
+
+@app.route("/health")
+def handle_health():
+    return {
+        "status": "ok",
+        "env": {
+            "OLLAMA_HOST": OLLAMA_HOST,
+            "LLM_STUDIO_DB": LLM_STUDIO_DB,
+        },
+    }
 
 
 @app.route("/folios", methods=["POST", "GET"])
@@ -221,7 +237,7 @@ def handle_ai():
                 r = prev["response"]
         if prev is None:
             r = gen_ai(
-                "llama3.2",
+                OLLAMA_MODEL,
                 attrs["prompt"],
                 attrs["params"] if "params" in attrs else None,
             )

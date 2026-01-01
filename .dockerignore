@@ -1,0 +1,6 @@
+**
+!/requirements.txt
+!/app.py
+!/schema.sql
+!/templates/*
+!/entrypoint.sh
