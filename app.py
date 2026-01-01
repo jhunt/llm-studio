@@ -143,9 +143,9 @@ def insert_response(folio_id, data_id, prompt, response):
         )
 
 
-def gen_ai(model, prompt):
+def gen_ai(model, prompt, params):
     # return '(bot is snoozing)'
-    r = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}])
+    r = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}], options=params)
     return r.message.content
 
 
@@ -209,12 +209,16 @@ def handle_q():
 def handle_ai():
     attrs = flask.request.get_json()
     try:
-        prev = get_response(attrs["folio_id"], attrs["data_id"], attrs["prompt"])
-        if prev is not None:
-            r = prev["response"]
-        else:
-            r = gen_ai("llama3.2", attrs["prompt"])
-            insert_response(attrs["folio_id"], attrs["data_id"], attrs["prompt"], r)
+        cache = attrs.get('cache', True)
+        prev = None
+        if cache:
+            prev = get_response(attrs["folio_id"], attrs["data_id"], attrs["prompt"])
+            if prev is not None:
+                r = prev["response"]
+        if prev is None:
+            r = gen_ai("llama3.2", attrs["prompt"], attrs["params"] if 'params' in attrs else None)
+            if cache:
+                insert_response(attrs["folio_id"], attrs["data_id"], attrs["prompt"], r)
         md = markdown_it.MarkdownIt()
         return {
             "status": "ok",
@@ -222,7 +226,7 @@ def handle_ai():
                 "md": r,
                 "html": md.render(r),
             },
-            "cached_at": prev["generated_at"] if prev is not None else None,
+            "cached_at": prev["generated_at"] if cache and prev is not None else None,
         }
     except Exception as e:
         return {"status": "error", "error": "The bot acted up", "exception": str(e)}
