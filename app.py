@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 import uuid
 
@@ -225,3 +226,25 @@ def handle_ai():
         }
     except Exception as e:
         return {"status": "error", "error": "The bot acted up", "exception": str(e)}
+
+
+@app.route("/manifest/<id>", methods=["GET"])
+def handle_manifest(id):
+  folio = get_folio(id)
+
+  folio['tasks'] = []
+  for row in run_data_query(folio['query']):
+    rplca = {}
+    for k in folio['params'].keys():
+      p = folio['params'][k]
+      if p['kind'] == 'database reference':
+        rplca[k] = row[p['value']]
+      elif p['kind'] == 'literal value':
+        rplca[k] = p['value']
+    prompt = re.sub(r'\[(.*?)\]', lambda m: rplca[m.group(1)], folio['prompt'])
+    folio['tasks'].append({
+      'data': row,
+      'prompt': prompt,
+    })
+
+  return folio
