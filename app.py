@@ -157,7 +157,7 @@ def index():
 
 
 @app.route("/folios", methods=["POST", "GET"])
-def post_folios():
+def handle_folios():
     if flask.request.method == "POST":
         attrs = flask.request.get_json()
         return {"id": insert_folio(attrs["name"], attrs["prompt"])}
@@ -168,7 +168,7 @@ def post_folios():
 
 
 @app.route("/folio/<id>", methods=["PUT", "GET", "DELETE"])
-def put_folio(id):
+def handle_folio(id):
     if flask.request.method == "PUT":
         attrs = flask.request.get_json()
         update_folio(
@@ -189,7 +189,7 @@ def put_folio(id):
 
 
 @app.route("/q", methods=["POST"])
-def run_q():
+def handle_q():
     attrs = flask.request.get_json()
     try:
         return {
@@ -205,7 +205,7 @@ def run_q():
 
 
 @app.route("/ai", methods=["POST"])
-def run_gen_ai():
+def handle_ai():
     attrs = flask.request.get_json()
     try:
         prev = get_response(attrs["folio_id"], attrs["data_id"], attrs["prompt"])
