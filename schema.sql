@@ -16,8 +16,3 @@ create table responses (
   response text not null,
   generated_at datetime not null default current_timestamp
 );
-
-);
-
---.mode csv
---.import import.csv folios -skip 1
