@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+# vim:ft=python
+import json
+import sys
+import requests
+import os
+
+if len(sys.argv) != 2:
+  print(f'USAGE: {sys.argv[0]} FOLIO-ID', file=sys.stderr)
+  print('', file=sys.stderr)
+  print('The following environment variables can be set:', file=sys.stderr)
+  print('', file=sys.stderr)
+  print('  BASE_URI=http://127.0.0.1:5000  # a url', file=sys.stderr)
+  print('  TEMPERATURE=0.2                 # a floating point number between 0 and 1', file=sys.stderr)
+  print('', file=sys.stderr)
+  exit(1)
+
+BASE_URI = os.getenv('BASE_URI', 'http://127.0.0.1:5000')
+TEMPERATURE = float(os.getenv('TEMPERATURE', '0.2'))
+print(f'using {BASE_URI} with temperature {TEMPERATURE}', file=sys.stderr)
+
+id = sys.argv[1]
+print(f'running folio {id}', file=sys.stderr)
+folio = requests.get(f'{BASE_URI}/manifest/{id}').json()
+n = len(folio['tasks'])
+for i in range(n):
+  print(f'[{i+1}/{n}] thinking...', file=sys.stderr)
+  folio['tasks'][i]['output'] = requests.post(f'{BASE_URI}/ai', json={
+    'folio_id': id,
+    'data_id': folio['tasks'][i]['data']['id'] if 'id' in folio['tasks'][i]['data'] else '',
+    'prompt': folio['tasks'][i]['prompt'],
+    'cache': False,
+    'params': {
+      'temperature': TEMPERATURE
+    },
+  }).json()
+print(json.dumps(folio))
