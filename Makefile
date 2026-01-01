@@ -1,3 +1,3 @@
 fmt:
-	isort *.py
-	black *.py
+	isort *.py bin/*
+	black *.py bin/*

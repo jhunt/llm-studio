@@ -16,9 +16,11 @@ def run_meta_query(sql):
         c.execute(sql)
         return [dict(x) for x in c.fetchall()]
 
+
 def run_data_query(sql):
     c = duckdb.connect()
-    return c.sql(sql).df().to_dict(orient='records')
+    return c.sql(sql).df().to_dict(orient="records")
+
 
 def first(c):
     v = c.fetchone()
@@ -145,7 +147,9 @@ def insert_response(folio_id, data_id, prompt, response):
 
 def gen_ai(model, prompt, params):
     # return '(bot is snoozing)'
-    r = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}], options=params)
+    r = ollama.chat(
+        model=model, messages=[{"role": "user", "content": prompt}], options=params
+    )
     return r.message.content
 
 
@@ -209,14 +213,18 @@ def handle_q():
 def handle_ai():
     attrs = flask.request.get_json()
     try:
-        cache = attrs.get('cache', True)
+        cache = attrs.get("cache", True)
         prev = None
         if cache:
             prev = get_response(attrs["folio_id"], attrs["data_id"], attrs["prompt"])
             if prev is not None:
                 r = prev["response"]
         if prev is None:
-            r = gen_ai("llama3.2", attrs["prompt"], attrs["params"] if 'params' in attrs else None)
+            r = gen_ai(
+                "llama3.2",
+                attrs["prompt"],
+                attrs["params"] if "params" in attrs else None,
+            )
             if cache:
                 insert_response(attrs["folio_id"], attrs["data_id"], attrs["prompt"], r)
         md = markdown_it.MarkdownIt()
@@ -234,21 +242,23 @@ def handle_ai():
 
 @app.route("/manifest/<id>", methods=["GET"])
 def handle_manifest(id):
-  folio = get_folio(id)
+    folio = get_folio(id)
 
-  folio['tasks'] = []
-  for row in run_data_query(folio['query']):
-    rplca = {}
-    for k in folio['params'].keys():
-      p = folio['params'][k]
-      if p['kind'] == 'database reference':
-        rplca[k] = row[p['value']]
-      elif p['kind'] == 'literal value':
-        rplca[k] = p['value']
-    prompt = re.sub(r'\[(.*?)\]', lambda m: rplca[m.group(1)], folio['prompt'])
-    folio['tasks'].append({
-      'data': row,
-      'prompt': prompt,
-    })
+    folio["tasks"] = []
+    for row in run_data_query(folio["query"]):
+        rplca = {}
+        for k in folio["params"].keys():
+            p = folio["params"][k]
+            if p["kind"] == "database reference":
+                rplca[k] = row[p["value"]]
+            elif p["kind"] == "literal value":
+                rplca[k] = p["value"]
+        prompt = re.sub(r"\[(.*?)\]", lambda m: rplca[m.group(1)], folio["prompt"])
+        folio["tasks"].append(
+            {
+                "data": row,
+                "prompt": prompt,
+            }
+        )
 
-  return folio
+    return folio
