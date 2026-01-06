@@ -300,46 +300,6 @@ button.-active {
   opacity: 0.2;
 }
 .rendered-prompts .resp .cached-at:hover { opacity: 1; }
-
-
-/*
-.modal-bg {
-  background-color: rgba(10, 10, 33, 0.9);
-  position: fixed;
-  top: 0; right: 0; bottom: 0; left: 0;
-  display: none;
-}
-
-.modal-fg {
-  margin: 10vh 30vh;
-  background-color: #111;
-  border: 1px solid #777;
-  padding: 1em;
-}
-.modal-fg > h1 {
-  margin: 0;
-  font-size: 12pt;
-}
-.modal-fg input[type=text] {
-  display: block;
-  font-size: 24pt;
-  background-color: transparent;
-  color: #fff;
-  outline: 0; border: none;
-  border-bottom: 2px solid #eee;
-  width: 60%;
-}
-.modal-fg textarea {
-  background-color: #222;;
-  color: #fff;
-  outline: 0; border: none;
-  width: 60%;
-  height: 60vh;
-  padding: 1em;
-  display: block;
-  margin: 1em 0;
-}
-*/
 </style>
 </head>
 <body>
@@ -406,21 +366,6 @@ button.-active {
     </span>
   </div>
 </main>
-
-<!--
-<div id="modal" class="modal-bg">
-  <div class="modal-fg">
-    <div class="modal-new-folio -hidden">
-      <form>
-        <h1>New Folio</h1>
-        <input name="name" type="text" value="Your Folio Title"/>
-        <textarea name="prompt"></textarea>
-        <button type="submit" class="-active">Save Folio</button>
-      </form>
-    </div>
-  </div>
-</div>
--->
 
 <template id="parameter-definition-template">
   <div class="parameter-definition">
@@ -871,11 +816,6 @@ const toggleCSSClassOn = (selector, className) => {
 
   $('[rel=new-folio]').addEventListener('click', ev => {
     ev.preventDefault();
-    /*
-    $('#modal .modal-fg > *').classList.add('-hidden');
-    $('#modal .modal-fg > .modal-new-folio').classList.remove('-hidden');
-    $('#modal').style.display = 'block';
-    */
     $the.folio = new Folio({
       name: 'Unnamed Folio',
       query: '',
@@ -884,17 +824,6 @@ const toggleCSSClassOn = (selector, className) => {
     $the.folio.mount();
     refresh_folios();
   });
-
-  /*
-  $('.modal-new-folio form').addEventListener('submit', ev => {
-    ev.preventDefault();
-    post('/folios', {
-      name: ev.target.elements.name.value,
-      prompt: ev.target.elements.prompt.value
-    });
-    document.location.href = document.location.href;
-  });
-  */
 
   const submitQuery = (form) => {
     form.querySelector('.error').classList.add('-hidden');
