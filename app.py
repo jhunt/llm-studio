@@ -243,6 +243,11 @@ def handle_ai():
             )
             if cache:
                 insert_response(attrs["folio_id"], attrs["data_id"], attrs["prompt"], r)
+
+        if 'out_file' in attrs and attrs['out_file'] != '':
+          with open(attrs['out_file'], 'w') as f:
+            f.write(r)
+
         md = markdown_it.MarkdownIt()
         return {
             "status": "ok",

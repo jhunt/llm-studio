@@ -995,6 +995,7 @@ const toggleCSSClassOn = (selector, className) => {
           post('/ai', {
             'folio_id': $the.folio.id,
             'data_id': data['id'] || '',
+            'out_file': data['output_filename'] || '',
             'prompt': para.innerText
           }).then(r => r.json())
             .then(r => {
